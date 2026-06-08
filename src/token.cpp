@@ -1,6 +1,7 @@
 #include <array>
 #include <string>
 #include <vector>
+#include <unordered_map>
 #include <utility>
 #include <cassert>
 #include "glassbox/token.h"
@@ -24,7 +25,15 @@ static std::string mini_utf8(unsigned int code);
 // --------- Public API ---------
 
 // Contract is documented in token.h.
-std::vector<int> encode(const std::string& text) {
+// TEMP: 
+// Steps needed to be done
+// 1) use regex to split into chunks
+// 2) turn each chunk into utf8 bytes
+// 3) map each byte to unicode
+// 4) go thrugh merge laws
+// 5) return ids
+std::vector<int> encode(const std::string& text, const Vocab& vocab,const Merge& merge) 
+{
     (void)text;
     return {};  // TODO: implement the encode pipeline
 }
@@ -36,7 +45,8 @@ std::vector<int> encode(const std::string& text) {
 // whitespace bytes (which the merge logic and the vocab files can't carry
 // cleanly). Printable bytes map to themselves; the rest are bumped to code
 // points from U+0100 upward. Returns each byte value → its stand-in, as a UTF-8 string.
-std::array<std::string, 256> bytes_to_unicode() {
+std::array<std::string, 256> bytes_to_unicode() 
+{
     std::array<std::string, 256> byteMapping{};
     int n = 0;
     for (int i = 0; i < 256; ++i) {
@@ -52,7 +62,8 @@ std::array<std::string, 256> bytes_to_unicode() {
 
 // True if byte value c is a printable character that maps to itself in
 // bytes_to_unicode (visible ASCII, or the printable parts of Latin-1).
-static bool isPrintable(int c) {
+static bool isPrintable(int c) 
+{
     for (auto [lo, hi] : printableRanges) {
         if (lo <= c && c <= hi)
             return true;
@@ -63,7 +74,8 @@ static bool isPrintable(int c) {
 // Encodes a Unicode code point as UTF-8, but only across the 1- and 2-byte range
 // (code points up to U+07FF) — all that bytes_to_unicode ever needs, hence the
 // assert. Swap in the full 4-byte encoder if you ever need to go higher.
-static std::string mini_utf8(unsigned int code) {
+static std::string mini_utf8(unsigned int code) 
+{
     assert(code <= 0x7ff && "mini_utf8() only works for 1-2 byte ranges");
     std::string out;
     if (code <= 0x7f) {
