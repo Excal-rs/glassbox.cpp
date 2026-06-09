@@ -4,7 +4,10 @@
 #include <unordered_map>
 #include <utility>
 #include <cassert>
+#define PCRE2_CODE_UNIT_WIDTH 8
+#include <pcre2.h>
 #include "glassbox/token.h"
+
 
 // --------- Constants ---------
 
@@ -16,6 +19,8 @@ static constexpr std::array<std::pair<int, int>, 3> printableRanges {{
     {0xa1, 0xac},
     {0xae, 0xff},
 }};
+
+static constexpr std::string_view GPT2_REGEX {R"('s|'t|'re|'ve|'m|'ll|'d| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+)"};
 
 // --------- Forward declarations ---------
 
@@ -40,12 +45,61 @@ std::vector<int> encode(const std::string& text, const Vocab& vocab,const Merge&
 
 // --------- Helper functions ---------
 
-// Builds GPT-2's byte→unicode table. Each of the 256 byte values is mapped to a
-// printable stand-in character, so the BPE pieces never hold raw control or
-// whitespace bytes (which the merge logic and the vocab files can't carry
-// cleanly). Printable bytes map to themselves; the rest are bumped to code
-// points from U+0100 upward. Returns each byte value → its stand-in, as a UTF-8 string.
-std::array<std::string, 256> bytes_to_unicode() 
+// Splits text into GPT-2's pre-tokenization chunks via the BPE regex.
+// Takes the input string; returns the chunks in order, covering the whole
+// string with no gaps or overlaps.
+std::vector<std::string> chop(std::string input)
+{
+    std::vector<std::string> chunks {};
+
+    // Compile Regex Pattern
+    int errcode;
+    PCRE2_SIZE erroffset;
+    pcre2_code *rcode {pcre2_compile(
+        (PCRE2_SPTR) GPT2_REGEX.data(),
+        GPT2_REGEX.size(),
+        PCRE2_UTF | PCRE2_UCP,
+        &errcode,
+        &erroffset, NULL
+    )};
+    assert(rcode != NULL && "No error when compiling regex");
+
+    // Allocate match data
+    pcre2_match_data *match {pcre2_match_data_create_from_pattern(
+        rcode, NULL
+    )};
+
+    // Perform Matches
+    PCRE2_SIZE offset {0};
+    while (offset < input.size())
+    {
+        pcre2_match(
+            rcode,
+            (PCRE2_SPTR) input.data(),
+            input.size(),
+            offset,
+            0,
+            match,
+            NULL
+        );
+
+        // Get start and end positions for appending and offset update
+        PCRE2_SIZE *overctor {pcre2_get_ovector_pointer(match)};
+        chunks.push_back(input.substr(overctor[0], overctor[1] - overctor[0]));
+        offset = overctor[1];
+    }
+
+    // Free heap memory
+    pcre2_match_data_free(match);
+    pcre2_code_free(rcode);
+
+
+    return chunks;
+}
+
+// Builds GPT-2's byte→unicode table, mapping all 256 byte values to printable
+// stand-in characters so the BPE pieces never hold raw control or whitespace bytes.
+static std::array<std::string, 256> bytes_to_unicode() 
 {
     std::array<std::string, 256> byteMapping{};
     int n = 0;
@@ -72,8 +126,8 @@ static bool isPrintable(int c)
 }
 
 // Encodes a Unicode code point as UTF-8, but only across the 1- and 2-byte range
-// (code points up to U+07FF) — all that bytes_to_unicode ever needs, hence the
-// assert. Swap in the full 4-byte encoder if you ever need to go higher.
+// (code points up to U+07FF), all that bytes_to_unicode ever needs, hence the
+// assert. Swap in the full 4-byte encoder if we ever need to go higher.
 static std::string mini_utf8(unsigned int code) 
 {
     assert(code <= 0x7ff && "mini_utf8() only works for 1-2 byte ranges");
@@ -86,3 +140,4 @@ static std::string mini_utf8(unsigned int code)
     }
     return out;
 }
+
