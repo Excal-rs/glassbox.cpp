@@ -4,7 +4,6 @@
 #include <unordered_map>
 #include <utility>
 #include <cassert>
-#include <algorithm>
 #include <climits>
 #define PCRE2_CODE_UNIT_WIDTH 8
 #include <pcre2.h>

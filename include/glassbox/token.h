@@ -2,6 +2,7 @@
 
 #include <string>
 #include <vector>
+#include <unordered_map>
 
 // --------- Types ---------
 using Vocab = std::unordered_map<std::string, u_int16_t>;
