@@ -68,8 +68,12 @@ vcpkg_installed/
 Testing/
 .cache/
 
+# local-only tests
+tests/
+
 # documentation (local notes)
 doc/
 
 # Model (Too big to upload)
 model/
+#

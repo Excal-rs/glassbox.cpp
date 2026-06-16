@@ -237,13 +237,27 @@ static std::string readQuotedString(std::ifstream& file) {
     std::string result;
     char c;
     while (file.get(c)) {
-        if (c == '"') {
-            if (!result.empty() && result.back() == '\\') {
-                result.pop_back();
-                result += '"';
+        if (c == '\\') {
+            if (!file.get(c)) break;
+            if (c == 'u') {
+                char hex[5] = {};
+                file.read(hex, 4);
+                unsigned int cp = std::stoul(hex, nullptr, 16);
+                if (cp <= 0x7f) {
+                    result += static_cast<char>(cp);
+                } else if (cp <= 0x7ff) {
+                    result += static_cast<char>(0xc0 | (cp >> 6));
+                    result += static_cast<char>(0x80 | (cp & 0x3f));
+                } else {
+                    result += static_cast<char>(0xe0 | (cp >> 12));
+                    result += static_cast<char>(0x80 | ((cp >> 6) & 0x3f));
+                    result += static_cast<char>(0x80 | (cp & 0x3f));
+                }
             } else {
-                break;
+                result += c;
             }
+        } else if (c == '"') {
+            break;
         } else {
             result += c;
         }
