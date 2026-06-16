@@ -64,31 +64,6 @@ std::string parse_json_string(const std::string& s, size_t& i) {
     return out;
 }
 
-// Loads GPT-2's vocab.json into a token->id map.
-Vocab load_vocab(const std::string& path) {
-    std::ifstream file(path);
-    std::stringstream buffer;
-    buffer << file.rdbuf();
-    const std::string s = buffer.str();
-
-    Vocab vocab {};
-    size_t i = 0;
-    while (true) {
-        while (i < s.size() && s[i] != '"') ++i;   // next key opens with a quote
-        if (i >= s.size()) break;
-
-        const std::string key = parse_json_string(s, i);
-        while (i < s.size() && s[i] != ':') ++i;    // skip to ':'
-        ++i;
-        while (i < s.size() && s[i] == ' ') ++i;     // skip space before the value
-
-        const size_t start = i;
-        while (i < s.size() && (s[i] == '-' || (s[i] >= '0' && s[i] <= '9'))) ++i;
-        vocab[key] = static_cast<u_int16_t>(std::stoi(s.substr(start, i - start)));
-    }
-    return vocab;
-}
-
 // Loads GPT-2's merges.txt into a "A B" -> rank map (rank = order in the file).
 Merge load_merges(const std::string& path) {
     std::ifstream file(path);

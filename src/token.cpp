@@ -5,6 +5,9 @@
 #include <utility>
 #include <cassert>
 #include <climits>
+#include <fstream>
+#include <iostream>
+#include <limits>
 #define PCRE2_CODE_UNIT_WIDTH 8
 #include <pcre2.h>
 #include "glassbox/token.h"
@@ -14,7 +17,7 @@
 
 // Byte values that bytes_to_unicode leaves unchanged (each maps to itself):
 // visible ASCII (! to ~), then the two printable runs of Latin-1, skipping the
-// C1 control block (127–160) and the soft hyphen (173).
+// C1 control block (127-160) and the soft hyphen (173).
 static constexpr std::array<std::pair<int, int>, 3> printableRanges {{
     {'!', '~'},
     {0xa1, 0xac},
@@ -30,6 +33,7 @@ static std::array<std::string, 256> bytes_to_unicode();
 static std::vector<std::string> merge_chunk(std::vector<std::string> chunk, const Merge &merge);
 static bool isPrintable(int c);
 static std::string mini_utf8(unsigned int code);
+static std::string readQuotedString(std::ifstream& file);
 
 // --------- Public API ---------
 
@@ -54,7 +58,56 @@ std::vector<int> encode(const std::string& text, const Vocab& vocab,const Merge&
     return ids;
 }
 
-// --------- Helper functions ---------
+// Loads the merge.txt file into the cpp program
+Merge load_merge(const std::string& path){
+    std::ifstream mergesf(path);
+    if (!mergesf){
+        std::cerr << "Error opening merges file!";
+        exit(1);
+    }
+
+    Merge merge{};
+    std::string line;
+
+    std::getline(mergesf, line);   // discard the "#version: 0.2" header
+
+    u_int16_t rank = 0;
+    while (std::getline(mergesf, line)){
+        if (line.empty()) continue; 
+        merge[line] = rank++;
+    }
+
+    return merge;
+}
+
+// Loads the vocab.json file into the cpp program
+Vocab load_vocab(const std::string& path){
+    std::ifstream vocabf(path);
+    if (!vocabf){
+        std::cerr << "Error loading vocab file!";
+        exit(1);
+    }
+
+    Vocab vocab{};
+
+    while (vocabf.good()) {
+        vocabf.ignore(std::numeric_limits<std::streamsize>::max(), '"');
+        if (!vocabf.good()) break;
+
+        std::string token = readQuotedString(vocabf);
+
+        vocabf.ignore(std::numeric_limits<std::streamsize>::max(), ':');
+        if (!vocabf.good()) break;
+
+        uint16_t id;
+        vocabf >> id;
+        if (!vocabf.good()) break;
+
+        vocab[token] = id;
+    }
+
+    return vocab;
+}
 
 // Splits text into GPT-2's pre-tokenization chunks via the BPE regex.
 // Takes the input string; returns the chunks in order, covering the whole
@@ -160,7 +213,7 @@ static std::vector<std::string> merge_chunk(std::vector<std::string> chunk, cons
 {
     // Repeatedly merge the lowest-rank adjacent pair, until nothing is mergeable
     while (chunk.size() > 1) {
-        std::pair<int, int> best = {-1, INT_MAX};   // {index, rank}
+        std::pair<int, int> best = {-1, std::numeric_limits<int>::max()};   // {index, rank}
 
         for (int i = 0; i + 1 < chunk.size(); ++i) {
             auto it = merge.find(chunk[i] + " " + chunk[i + 1]);
@@ -177,4 +230,23 @@ static std::vector<std::string> merge_chunk(std::vector<std::string> chunk, cons
     }
 
     return chunk;
+}
+
+// Reads from the current read poitner to the next unescaped '"'
+static std::string readQuotedString(std::ifstream& file) {
+    std::string result;
+    char c;
+    while (file.get(c)) {
+        if (c == '"') {
+            if (!result.empty() && result.back() == '\\') {
+                result.pop_back();
+                result += '"';
+            } else {
+                break;
+            }
+        } else {
+            result += c;
+        }
+    }
+    return result;
 }
