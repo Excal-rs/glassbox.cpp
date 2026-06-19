@@ -33,7 +33,6 @@ static std::array<std::string, 256> bytes_to_unicode();
 static std::vector<std::string> merge_chunk(std::vector<std::string> chunk, const Merge &merge);
 static bool isPrintable(int c);
 static std::string mini_utf8(unsigned int code);
-static std::string readQuotedString(std::ifstream& file);
 
 // --------- Public API ---------
 
@@ -58,56 +57,7 @@ std::vector<int> encode(const std::string& text, const Vocab& vocab,const Merge&
     return ids;
 }
 
-// Loads the merge.txt file into the cpp program
-Merge load_merge(const std::string& path){
-    std::ifstream mergesf(path);
-    if (!mergesf){
-        std::cerr << "Error opening merges file!";
-        exit(1);
-    }
 
-    Merge merge{};
-    std::string line;
-
-    std::getline(mergesf, line);   // discard the "#version: 0.2" header
-
-    u_int16_t rank = 0;
-    while (std::getline(mergesf, line)){
-        if (line.empty()) continue; 
-        merge[line] = rank++;
-    }
-
-    return merge;
-}
-
-// Loads the vocab.json file into the cpp program
-Vocab load_vocab(const std::string& path){
-    std::ifstream vocabf(path);
-    if (!vocabf){
-        std::cerr << "Error loading vocab file!";
-        exit(1);
-    }
-
-    Vocab vocab{};
-
-    while (vocabf.good()) {
-        vocabf.ignore(std::numeric_limits<std::streamsize>::max(), '"');
-        if (!vocabf.good()) break;
-
-        std::string token = readQuotedString(vocabf);
-
-        vocabf.ignore(std::numeric_limits<std::streamsize>::max(), ':');
-        if (!vocabf.good()) break;
-
-        uint16_t id;
-        vocabf >> id;
-        if (!vocabf.good()) break;
-
-        vocab[token] = id;
-    }
-
-    return vocab;
-}
 
 // Splits text into GPT-2's pre-tokenization chunks via the BPE regex.
 // Takes the input string; returns the chunks in order, covering the whole
@@ -230,37 +180,4 @@ static std::vector<std::string> merge_chunk(std::vector<std::string> chunk, cons
     }
 
     return chunk;
-}
-
-// Reads from the current read poitner to the next unescaped '"'
-static std::string readQuotedString(std::ifstream& file) {
-    std::string result;
-    char c;
-    while (file.get(c)) {
-        if (c == '\\') {
-            if (!file.get(c)) break;
-            if (c == 'u') {
-                char hex[5] = {};
-                file.read(hex, 4);
-                unsigned int cp = std::stoul(hex, nullptr, 16);
-                if (cp <= 0x7f) {
-                    result += static_cast<char>(cp);
-                } else if (cp <= 0x7ff) {
-                    result += static_cast<char>(0xc0 | (cp >> 6));
-                    result += static_cast<char>(0x80 | (cp & 0x3f));
-                } else {
-                    result += static_cast<char>(0xe0 | (cp >> 12));
-                    result += static_cast<char>(0x80 | ((cp >> 6) & 0x3f));
-                    result += static_cast<char>(0x80 | (cp & 0x3f));
-                }
-            } else {
-                result += c;
-            }
-        } else if (c == '"') {
-            break;
-        } else {
-            result += c;
-        }
-    }
-    return result;
 }

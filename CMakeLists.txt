@@ -4,6 +4,10 @@ project(glassbox CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+# Emit build/compile_commands.json so editors/IntelliSense pick up include paths
+# (e.g. fetched deps like nlohmann_json) without manual configuration.
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
 # Prefer a system-installed PCRE2; otherwise fetch and build it from source.
 find_package(PCRE2 QUIET COMPONENTS 8BIT)
 
@@ -33,6 +37,22 @@ if(NOT PCRE2_FOUND)
     elseif(TARGET pcre2-8-shared)
         add_library(PCRE2::8BIT ALIAS pcre2-8-shared)
     endif()
+endif()
+
+# Header-only JSON; prefer a system install, otherwise fetch from source.
+find_package(nlohmann_json QUIET)
+
+if(NOT nlohmann_json_FOUND)
+    message(STATUS "nlohmann_json not found on system; fetching from source")
+    include(FetchContent)
+
+    FetchContent_Declare(
+        nlohmann_json
+        GIT_REPOSITORY https://github.com/nlohmann/json.git
+        GIT_TAG v3.11.3
+        GIT_SHALLOW TRUE
+    )
+    FetchContent_MakeAvailable(nlohmann_json)
 endif()
 
 enable_testing()
