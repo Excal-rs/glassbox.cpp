@@ -107,22 +107,22 @@ static Config load_config(const std::string& path){
 
 // Helper function for `load_model`, loads safetensor file into `SafeTensors` struct
 static SafeTensors open_safetensors(const std::string& path){
-    std::ifstream f(path, std::ios::binary);
-    if (!f){
+    std::ifstream safetensorsf(path, std::ios::binary);
+    if (!safetensorsf){
         std::cerr << "Error opening weights file!";
         exit(1);
     }
 
     uint64_t header_len;
-    f.read(reinterpret_cast<char*>(&header_len), 8);
+    safetensorsf.read(reinterpret_cast<char*>(&header_len), 8);
 
     std::string hdr(header_len, '\0');
-    f.read(hdr.data(), header_len);
+    safetensorsf.read(hdr.data(), header_len);
 
     SafeTensors st;
     st.header     = json::parse(hdr);
     st.data_start = 8 + header_len;
-    st.file       = std::move(f);
+    st.file       = std::move(safetensorsf);
     return st;
 }
 
