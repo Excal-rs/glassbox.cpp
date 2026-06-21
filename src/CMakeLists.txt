@@ -2,6 +2,7 @@ add_library(glassbox
     token.cpp
     model.cpp
     embed.cpp
+    layernorm.cpp
 )
 
 # Exposes include/ to anything linking glassbox, so includes look like
