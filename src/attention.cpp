@@ -5,8 +5,8 @@
 
 // --------- Static Forward Declarations ---------
 
-static std::array<Tensor, 3> qkv_projection(const Tensor& xn, const Attention& attn);
-static Tensor split_heads(const Tensor& m, size_t n_head);
+static std::array<Tensor, 3> qkv_projection(const Tensor& xn, const Attention& attn, const Config& config);
+static std::vector<Tensor> split_heads(const Tensor& m, const Config& config);
 static Tensor attention_head(const Tensor& Q_h, const Tensor& K_h, const Tensor& V_h, float scale);
 static Tensor merge_heads(const Tensor& heads, size_t n_head);
 static Tensor output_projection(const Tensor& concat, const Attention& attn);
@@ -25,7 +25,8 @@ static Tensor output_projection(const Tensor& concat, const Attention& attn);
 // - Add to input
 Tensor attention(const Tensor& ids, const LayerNorm& ln_1, const Attention& attn, const Config& config)
 {
-    Tensor xn { layernorm(ids, ln_1, config.ln_eps) };
+    Tensor xn                 { layernorm(ids, ln_1, config.ln_eps) };
+    std::array<Tensor, 3> QKV { qkv_projection(xn, attn, config) };
     return {};
 }
 
@@ -41,34 +42,53 @@ static std::array<Tensor, 3> qkv_projection(const Tensor& xn, const Attention& a
 
     // Perform (xn . w) + b
     Tensor n { matmul(xn, attn.c_attn.w) };
-    for (size_t i = 0; i < n.data.size(); ++i){
-        n.data[i] += attn.c_attn.b.data[i % n_stride];
+    for (size_t t = 0; t < seq; ++t){
+        for (size_t c = 0; c < n_stride; ++c){
+            n(t, c) += attn.c_attn.b.data[c];
+        }
     }
 
     // [Q, K, V]
     std::array<Tensor, 3> qkv {};
     for (Tensor& t : qkv){
         t.shape = {seq, n_embd};
-        t.data  = std::vector<float>(seq * n_embd); 
+        t.data  = std::vector<float>(seq * n_embd);
     }
 
-    // Extract data
+    // Extract data: n's columns are laid out as [Q | K | V], each n_embd wide.
     for (size_t t = 0; t < seq; ++t){
         for (size_t c = 0; c < n_embd; ++c){
-            const size_t dst = t * n_embd + c;
-            const size_t src = t * n_stride + c;
-            qkv[0].data.at(dst) = n.data[src];
-            qkv[1].data.at(dst) = n.data[src + n_embd];
-            qkv[2].data.at(dst) = n.data[src + n_embd * 2];
+            qkv[0](t, c) = n(t, c);
+            qkv[1](t, c) = n(t, c + n_embd);
+            qkv[2](t, c) = n(t, c + n_embd * 2);
         }
     }
 
     return qkv;
 }
 
-static Tensor split_heads(const Tensor& m, size_t n_head)
+static std::vector<Tensor> split_heads(const Tensor& m, const Config& config)
 {
-    return {};
+    auto seq      = m.shape[0];
+    auto n_embd   = config.n_embd;
+    auto n_head   = config.n_head;
+    auto head_dim = n_embd / n_head;
+    
+    std::vector<Tensor> heads(n_head);
+    for (size_t i = 0; i < n_head; ++i){
+        heads[i].data = std::vector<float>(seq * head_dim);
+        heads[i].shape = {seq, head_dim};
+    }
+
+    for (size_t i = 0; i < n_head; ++i){
+        for (size_t j = 0; j < seq; ++j){
+            for (size_t k = 0; k < head_dim; ++k){
+                heads[i](j, k) = m(j, i * head_dim + k);
+            }
+        }
+    }
+
+    return heads;
 }
 
 static Tensor attention_head(const Tensor& Q_h, const Tensor& K_h, const Tensor& V_h, float scale)

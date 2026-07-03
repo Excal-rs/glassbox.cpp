@@ -16,6 +16,11 @@ using Merge  = std::unordered_map<std::string, u_int16_t>;
 struct Tensor {
     std::vector<float>  data;
     std::vector<size_t> shape;
+
+    // 2-D element access: maps (row, col) to the flat, row-major index.
+    // Only valid for rank-2 tensors (shape.size() == 2).
+    float& operator()(size_t r, size_t c)             { return data[r * shape[1] + c]; }
+    float  operator()(size_t r, size_t c) const       { return data[r * shape[1] + c]; }
 };
 
 struct Linear {
