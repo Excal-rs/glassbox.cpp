@@ -1,13 +1,20 @@
 #include <array>
+#include <cmath>
+#include <limits>
 #include "glassbox/layernorm.h"
 #include "glassbox/utils.h"
 #include "glassbox/attention.h"
+
+// --------- Constants ---------
+
+// Used to mask out future positions before softmax; exp(-inf) == 0.
+static constexpr float NEG_INF = -std::numeric_limits<float>::infinity();
 
 // --------- Static Forward Declarations ---------
 
 static std::array<Tensor, 3> qkv_projection(const Tensor& xn, const Attention& attn, const Config& config);
 static std::vector<Tensor> split_heads(const Tensor& m, const Config& config);
-static Tensor attention_head(const Tensor& Q_h, const Tensor& K_h, const Tensor& V_h, float scale);
+static Tensor attention_head(const Tensor& Q, const Tensor& K, const Tensor& V, float scale);
 static Tensor merge_heads(const Tensor& heads, size_t n_head);
 static Tensor output_projection(const Tensor& concat, const Attention& attn);
 
@@ -74,12 +81,14 @@ static std::vector<Tensor> split_heads(const Tensor& m, const Config& config)
     auto n_head   = config.n_head;
     auto head_dim = n_embd / n_head;
     
+    // Initiating Tensors
     std::vector<Tensor> heads(n_head);
     for (size_t i = 0; i < n_head; ++i){
         heads[i].data = std::vector<float>(seq * head_dim);
         heads[i].shape = {seq, head_dim};
     }
 
+    // Assigning Tensor values
     for (size_t i = 0; i < n_head; ++i){
         for (size_t j = 0; j < seq; ++j){
             for (size_t k = 0; k < head_dim; ++k){
@@ -91,9 +100,33 @@ static std::vector<Tensor> split_heads(const Tensor& m, const Config& config)
     return heads;
 }
 
-static Tensor attention_head(const Tensor& Q_h, const Tensor& K_h, const Tensor& V_h, float scale)
+static Tensor attention_head(const Tensor& Q, const Tensor& K, const Tensor& V, float scale)
 {
-    return {};
+    auto seq = Q.shape[0];
+    Tensor S = matmul(Q, transpose(K));
+
+    for (size_t i = 0; i < seq; ++i){
+        // Scale and mask future positions
+        float row_max = NEG_INF;
+        for (size_t j = 0; j < seq; ++j){
+            const float s = (j > i) ? NEG_INF : S(i, j) * scale;
+            S(i, j) = s;
+            if (s > row_max) row_max = s;
+        }
+
+        // Softmax over the row
+        float sum = 0.0f;
+        for (size_t j = 0; j < seq; ++j){
+            const float e = std::exp(S(i, j) - row_max);
+            S(i, j) = e;
+            sum += e;
+        }
+        for (size_t j = 0; j < seq; ++j){
+            S(i, j) /= sum;
+        }
+    }
+
+    return matmul(S, V);
 }
 
 static Tensor merge_heads(const Tensor& heads, size_t n_head)

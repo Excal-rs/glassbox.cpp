@@ -30,6 +30,26 @@ Tensor matmul(const Tensor& a, const Tensor& b)
             }
         }
     }
-    
+
     return product;
+}
+
+// Transpose of a 2D tensor: A (shape {m, n}) -> shape {n, m}, out[j][i] = A[i][j].
+Tensor transpose(const Tensor& a)
+{
+    const size_t m = a.shape[0];
+    const size_t n = a.shape[1];
+
+    Tensor out {
+        .data  = std::vector<float>(m * n),
+        .shape = {n, m}
+    };
+
+    for (size_t i = 0; i < m; ++i){
+        for (size_t j = 0; j < n; ++j){
+            out(j, i) = a(i, j);
+        }
+    }
+
+    return out;
 }
