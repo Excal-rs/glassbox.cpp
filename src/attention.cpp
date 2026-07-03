@@ -15,26 +15,39 @@ static constexpr float NEG_INF = -std::numeric_limits<float>::infinity();
 static std::array<Tensor, 3> qkv_projection(const Tensor& xn, const Attention& attn, const Config& config);
 static std::vector<Tensor> split_heads(const Tensor& m, const Config& config);
 static Tensor attention_head(const Tensor& Q, const Tensor& K, const Tensor& V, float scale);
-static Tensor merge_heads(const Tensor& heads, size_t n_head);
+static Tensor merge_heads(const std::vector<Tensor>& heads);
 static Tensor output_projection(const Tensor& concat, const Attention& attn);
 
 
 // --------- Public API ---------
 
-// Runs one block's attention sublayer on x (shape {seq, n_embd}).
-// Does the following:
-// - Applies LayerNorm 
-// - QKV Projection
-// - Split into Heads
-// - Compute Scores, Mask, Softmax and Weighted Sum
-// - Merge Heads
-// - Output Projection
-// - Add to input
+// Runs one block's attention sublayer on x (shape {seq, n_embd})
 Tensor attention(const Tensor& ids, const LayerNorm& ln_1, const Attention& attn, const Config& config)
 {
+    const float scale = 1.0f / std::sqrt(static_cast<float>(config.n_embd / config.n_head));
+
     Tensor xn                 { layernorm(ids, ln_1, config.ln_eps) };
     std::array<Tensor, 3> QKV { qkv_projection(xn, attn, config) };
-    return {};
+
+    // Split each of Q, K, V into their per-head matrices
+    std::vector<Tensor> Q { split_heads(QKV[0], config) };
+    std::vector<Tensor> K { split_heads(QKV[1], config) };
+    std::vector<Tensor> V { split_heads(QKV[2], config) };
+
+    // Run attention on each head independently
+    std::vector<Tensor> O(config.n_head);
+    for (size_t h = 0; h < config.n_head; ++h){
+        O[h] = attention_head(Q[h], K[h], V[h], scale);
+    }
+
+    Tensor out { output_projection(merge_heads(O), attn) };
+
+    // Residual: add back the original (pre-LayerNorm) input
+    for (size_t i = 0; i < out.data.size(); ++i){
+        out.data[i] += ids.data[i];
+    }
+
+    return out;
 }
 
 
@@ -129,13 +142,45 @@ static Tensor attention_head(const Tensor& Q, const Tensor& K, const Tensor& V, 
     return matmul(S, V);
 }
 
-static Tensor merge_heads(const Tensor& heads, size_t n_head)
+// Concatenates the per-head outputs back into one {seq, n_embd} matrix,
+// head h fills columns [h*head_dim : (h+1)*head_dim] (inverse of split_heads)
+static Tensor merge_heads(const std::vector<Tensor>& heads)
 {
-    return {};
+    const size_t n_head   = heads.size();
+    const size_t seq      = heads[0].shape[0];
+    const size_t head_dim = heads[0].shape[1];
+    const size_t n_embd   = n_head * head_dim;
+
+    Tensor out {
+        .data  = std::vector<float>(seq * n_embd),
+        .shape = {seq, n_embd}
+    };
+
+    for (size_t i = 0; i < n_head; ++i){
+        for (size_t j = 0; j < seq; ++j){
+            for (size_t k = 0; k < head_dim; ++k){
+                out(j, i * head_dim + k) = heads[i](j, k);
+            }
+        }
+    }
+
+    return out;
 }
 
+// Mixes the merged head outputs through the block's final linear layer
 static Tensor output_projection(const Tensor& concat, const Attention& attn)
 {
-    return {};
+    const size_t seq    = concat.shape[0];
+    const size_t n_embd = concat.shape[1];
+
+    // Perform (concat . w) + b
+    Tensor out { matmul(concat, attn.c_proj.w) };
+    for (size_t t = 0; t < seq; ++t){
+        for (size_t c = 0; c < n_embd; ++c){
+            out(t, c) += attn.c_proj.b.data[c];
+        }
+    }
+
+    return out;
 }
 
