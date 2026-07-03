@@ -89,10 +89,10 @@ static std::array<Tensor, 3> qkv_projection(const Tensor& xn, const Attention& a
 
 static std::vector<Tensor> split_heads(const Tensor& m, const Config& config)
 {
-    auto seq      = m.shape[0];
-    auto n_embd   = config.n_embd;
-    auto n_head   = config.n_head;
-    auto head_dim = n_embd / n_head;
+    const size_t seq      = m.shape[0];
+    const size_t n_embd   = config.n_embd;
+    const size_t n_head   = config.n_head;
+    const size_t head_dim = n_embd / n_head;
     
     // Initiating Tensors
     std::vector<Tensor> heads(n_head);
