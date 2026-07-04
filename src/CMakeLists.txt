@@ -4,6 +4,7 @@ add_library(glassbox
     embed.cpp
     layernorm.cpp
     attention.cpp
+    mlp.cpp
 )
 
 # Exposes include/ to anything linking glassbox, so includes look like
