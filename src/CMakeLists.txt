@@ -1,10 +1,12 @@
 add_library(glassbox
     token.cpp
+    utils.cpp
     model.cpp
     embed.cpp
     layernorm.cpp
     attention.cpp
     mlp.cpp
+    forward.cpp
 )
 
 # Exposes include/ to anything linking glassbox, so includes look like

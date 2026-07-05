@@ -4,11 +4,12 @@
 
 Most inference engines treat the model as a blackbox, `glassbox.cpp` is designed to be open, it's a from-scratch inference engine (currently only being built for GPT-2) that where every activation can be named, accessed, and edited. The goal is a purpose-built tool, that allows researchers to study models like GPT-2, so we can understand them better through **Mechanistic Interpretability**.
 
-> **Status: early - In Progress** 
-> The byte-level BPE tokenizer and the safetensors weight
-> loader are in place; the transformer forward pass is being built now. The
-> interpretability toolkit is designed but intentionally deferred until the
-> engine is complete.
+> **Status: v0.1 — the engine works.**
+> The full pipeline (BPE tokenizer → safetensors loader → 12-block forward
+> pass → greedy decoding → detokenizer) is implemented and validated
+> token-for-token against HuggingFace GPT-2 (see
+> [`doc/.markdown/benchmarks.md`](doc/.markdown/benchmarks.md)). The
+> interpretability toolkit is the next major phase.
 
 ---
 
@@ -25,7 +26,19 @@ The reference model is GPT-2 small (124M): `vocab=50257`, `n_embd=768`,
 
 ---
 
-## Coming in future 
+## Roadmap
+
+### Done (v0.1)
+- [x] Byte-level BPE tokenizer (encode + decode)
+- [x] safetensors weight loader
+- [x] Full forward pass: embedding, LayerNorm, attention, MLP, tied unembedding
+- [x] Greedy generation loop + `glassbox_cli`
+- [x] Token-for-token validation against HuggingFace GPT-2
+
+### Engine improvements *(near term)*
+- [ ] KV cache — per-token cost is currently O(seq²) from recomputing attention over the whole prefix
+- [ ] Sampling strategies: temperature, top-k, top-p
+- [ ] Multithreaded / SIMD matmuls (single-threaded scalar loops today; see [`benchmarks.md`](doc/.markdown/benchmarks.md))
 
 ### Interpretability toolkit *(next major phase)*
 The reason the project exists. A `glassbox-cli` that loads GPT-2 and lets you
@@ -59,16 +72,42 @@ hook design is meant to survive the move to GPU so interventions keep working.
 ## Building
 
 ```bash
-cmake -S . -B build
+cmake -S . -B build        # defaults to a Release build
 cmake --build build
-
-./build/app/glassbox_cli
 ```
 
-Requires a C++17 compiler and CMake. GPT-2 weights are not included — supply your
-own `safetensors` checkpoint and GPT-2 vocab files.
+Requires a C++17 compiler and CMake. The build defaults to `Release` — the
+forward pass is ~20× slower unoptimized (pass `-DCMAKE_BUILD_TYPE=Debug` when
+debugging).
 
-Model files can be downloaded from huggingface. 
+## Getting the model files
+
+GPT-2 weights are not included. Download these four files from the
+[HuggingFace `gpt2` repo](https://huggingface.co/openai-community/gpt2/tree/main)
+into a `model/` directory:
+
+```
+model/
+├── config.json
+├── vocab.json
+├── merges.txt
+└── model.safetensors
+```
+
+## Usage
+
+```bash
+./build/app/glassbox_cli <model_dir> "<prompt>" [n_tokens]
+```
+
+`n_tokens` defaults to 50. Decoding is greedy (deterministic), streamed
+token-by-token; generation stops early on `<|endoftext|>` or at the 1024-token
+context limit. Example:
+
+```
+$ ./build/app/glassbox_cli model "The cat sat on" 10
+The cat sat on the floor, and the cat was still asleep.
+```
 
 
 ---

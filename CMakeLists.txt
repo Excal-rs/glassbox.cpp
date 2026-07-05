@@ -4,6 +4,12 @@ project(glassbox CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+# Default to an optimized build — the forward pass is unusably slow at -O0.
+# Override with -DCMAKE_BUILD_TYPE=Debug when debugging.
+if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+    set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
+endif()
+
 # Emit build/compile_commands.json so editors/IntelliSense pick up include paths
 # (e.g. fetched deps like nlohmann_json) without manual configuration.
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)

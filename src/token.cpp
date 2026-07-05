@@ -57,6 +57,36 @@ std::vector<int> encode(const std::string& text, const Vocab& vocab,const Merge&
     return ids;
 }
 
+// Contract is documented in token.h.
+std::string decode(const std::vector<int>& ids, const Vocab& vocab)
+{
+    // Inverse vocab: id -> token string
+    std::vector<std::string> inverse(vocab.size());
+    for (const auto& [token, id] : vocab){
+        inverse[id] = token;
+    }
+
+    // Inverse byte map: printable stand-in -> raw byte
+    auto mapping = bytes_to_unicode();
+    std::unordered_map<std::string, char> unmapping {};
+    for (int b = 0; b < 256; ++b){
+        unmapping[mapping[b]] = static_cast<char>(b);
+    }
+
+    std::string out {};
+    for (int id : ids){
+        const std::string& token = inverse[id];
+
+        // Each stand-in is 1 or 2 UTF-8 bytes wide, given by its lead byte
+        for (size_t i = 0; i < token.size(); ){
+            const size_t width = (static_cast<unsigned char>(token[i]) < 0x80) ? 1 : 2;
+            out += unmapping.at(token.substr(i, width));
+            i += width;
+        }
+    }
+
+    return out;
+}
 
 
 // Splits text into GPT-2's pre-tokenization chunks via the BPE regex.
