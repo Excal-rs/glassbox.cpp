@@ -17,8 +17,7 @@ Most inference engines treat the model as a blackbox, `glassbox.cpp` is designed
 
 A single C++ library (`glassbox`) implementing the full GPT-2 pipeline, plus a
 thin CLI driver (`glassbox_cli`). No deep-learning framework — the matmuls,
-LayerNorm, attention, and softmax are written directly so that every step is
-legible and hookable.
+LayerNorm, attention, and softmax are written from scratch.
 
 The reference model is GPT-2 small (124M): `vocab=50257`, `n_embd=768`,
 `n_layer=12`, `n_head=12`, `n_ctx=1024`, weights loaded from a standard
