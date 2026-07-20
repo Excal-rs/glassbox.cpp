@@ -7,6 +7,7 @@ add_library(glassbox
     attention.cpp
     mlp.cpp
     forward.cpp
+    interp.cpp
 )
 
 # Exposes include/ to anything linking glassbox, so includes look like
