@@ -18,7 +18,7 @@ struct ModelCache {
 };
 
 struct InterpContext {
-    ModelCache* cache;
+    ModelCache* cache = nullptr;
 };
 
 // --------- Public API ---------

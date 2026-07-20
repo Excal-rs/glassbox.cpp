@@ -1,13 +1,12 @@
 #include <cstdint>
-#include <cstdlib>
 #include <fstream>
-#include <iostream>
 #include <string>
 #include <vector>
 
 #include <nlohmann/json.hpp>
 
 #include "glassbox/model.h"
+#include "glassbox/utils.h"
 
 using json = nlohmann::json;
 
@@ -45,8 +44,7 @@ Model load_model(const std::string& model_dir){
 static Vocab load_vocab(const std::string& path){
     std::ifstream vocabf(path);
     if (!vocabf){
-        std::cerr << "Error loading vocab file!";
-        exit(1);
+        die("cannot open vocab file: " + path);
     }
 
     json j;
@@ -64,8 +62,7 @@ static Vocab load_vocab(const std::string& path){
 static Merge load_merge(const std::string& path){
     std::ifstream mergesf(path);
     if (!mergesf){
-        std::cerr << "Error opening merges file!";
-        exit(1);
+        die("cannot open merges file: " + path);
     }
 
     Merge merge{};
@@ -86,8 +83,7 @@ static Merge load_merge(const std::string& path){
 static Config load_config(const std::string& path){
     std::ifstream configf(path);
     if (!configf) {
-        std::cerr << "Error loading Model config file!";
-        exit(1);
+        die("cannot open config file: " + path);
     }
 
     json j;
@@ -109,8 +105,7 @@ static Config load_config(const std::string& path){
 static SafeTensors open_safetensors(const std::string& path){
     std::ifstream safetensorsf(path, std::ios::binary);
     if (!safetensorsf){
-        std::cerr << "Error opening weights file!";
-        exit(1);
+        die("cannot open weights file: " + path);
     }
 
     uint64_t header_len;
