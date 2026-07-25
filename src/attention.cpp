@@ -41,9 +41,6 @@ Tensor attention(const Tensor& ids, const LayerNorm& ln_1, const Attention& attn
     }
 
     Tensor out { output_projection(merge_heads(O), attn) };
-
-    // Interp hook: capture the attention sublayer's contribution — post-c_proj
-    // bias, pre-residual. Guarded on cache presence; a null cache is "interp off".
     if (interpctx.cache) {
         interpctx.cache->layers[layer_idx].attention_output = out.data;
     }

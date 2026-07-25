@@ -10,6 +10,7 @@
 #include "glassbox/model.h"
 #include "glassbox/token.h"
 #include "glassbox/forward.h"
+#include "glassbox/interp.h"
 #include "glassbox/utils.h"
 
 // --------- Constants ---------
@@ -93,7 +94,6 @@ std::string resolve_prompt(const Options& opt) {
     return line;
 }
 
-
 // --------- Entry Point ---------
 
 int main(int argc, char* argv[]) {
@@ -105,17 +105,26 @@ int main(int argc, char* argv[]) {
     std::vector<int>  ids    = encode(prompt, model.vocab, model.merge);
     if (ids.empty()) die("empty prompt");
 
+    // Interp capture init
+    ModelCache    cache {};
+    InterpContext interpctx {};
+    size_t        cached_seq_len { 0 };
+
     if (opt.interp_dump) {
-        // TODO
-        die("interp dump mode is not implemented yet (dump target: " + *opt.interp_dump + ")");
+        cache = init_cache(model.config, ids.size());
+        interpctx.cache = &cache;
     }
 
     // Generation
-    std::string response = prompt;
+    std::string response { prompt };
     std::cout << prompt << std::flush;
 
     for (int i = 0; i < opt.n_tokens && ids.size() < model.config.n_ctx; ++i) {
-        Tensor x { forward(ids, model) };
+        // Each pass overwrites the cache, so what survives the loop is the last
+        // one — and its seq_len is the ids length going in, before the append.
+        cached_seq_len = ids.size();
+
+        Tensor x { forward(ids, model, interpctx) };
         std::vector<float> logits { lm_logits(x, model) };
 
         // Greedy decoding, currently being used for testing, TODO: Add other modes and flags for this
@@ -132,6 +141,23 @@ int main(int argc, char* argv[]) {
         std::cout << piece << std::flush;
     }
     std::cout << "\n";
+
+    if (opt.interp_dump) {
+        if (cached_seq_len == 0)
+            die("no forward pass ran, so there are no activations to dump");
+
+        std::ofstream file(*opt.interp_dump, std::ios::binary);
+        if (!file) die("cannot open dump file: " + *opt.interp_dump);
+
+        dump_cache(file, cache, model.config, cached_seq_len);
+
+        // ofstream's destructor flushes but swallows any error, so close explicitly.
+        file.close();
+        if (!file) die("cannot finish writing dump file: " + *opt.interp_dump);
+
+        std::cerr << "wrote " << *opt.interp_dump << " (" << cached_seq_len
+                  << " tokens, " << model.config.n_layer << " layers)\n";
+    }
 
     if (opt.output) {
         std::ofstream out(*opt.output);

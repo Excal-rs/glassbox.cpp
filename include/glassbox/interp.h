@@ -2,7 +2,8 @@
 
 #include <vector>
 #include <cstddef>
-#include "model.h" 
+#include <ostream>
+#include "model.h"
 
 // --------- Interp Cache Types ---------
 struct LayerCache {
@@ -23,3 +24,4 @@ struct InterpContext {
 
 // --------- Public API ---------
 ModelCache init_cache(const Config& config, const size_t seq_len);
+void       dump_cache(std::ostream& file, const ModelCache& cache, const Config& config, const size_t seq_len);
