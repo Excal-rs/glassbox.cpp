@@ -76,4 +76,9 @@ enable_testing()
 
 add_subdirectory(src)
 add_subdirectory(app)
-add_subdirectory(tests)
+
+# tests/ is kept out of the published repository, so only descend into it when
+# it is actually there; a fresh clone would otherwise fail at configure time.
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/tests/CMakeLists.txt")
+    add_subdirectory(tests)
+endif()
