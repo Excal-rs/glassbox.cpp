@@ -45,6 +45,7 @@ Tensor mlp(const Tensor& x, const LayerNorm& ln, const MLP& mlp, const Config& c
     if (interpctx.cache) {
         interpctx.cache->layers[layer_idx].mlp_output = out.data;
     }
+    ablate_mlp(out.data, interpctx.ablation, layer_idx);
 
     // Pass 2: add the residual
     for (size_t i = 0; i < seq; ++i){

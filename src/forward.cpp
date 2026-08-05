@@ -13,6 +13,8 @@ Tensor forward(const std::vector<int>& ids, const Model& model, const InterpCont
     const Config&  config  = model.config;
     const Network& network = model.network;
 
+    validate_ablation(interpctx.ablation, config, ids.size());
+
     Tensor x { embed(ids, model) };
 
     // Checkpoint: the residual stream entering the first block (wte + wpe).

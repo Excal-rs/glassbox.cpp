@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <cstddef>
 #include <cstdlib>
 #include <fstream>
@@ -29,6 +30,7 @@ struct Options {
     std::optional<std::string> prompt_file;       // -f / --prompt-file
     std::optional<std::string> output;            // -o / --output
     std::optional<std::string> interp_dump;       // -i / --interp <path> (presence = on)
+    AblationConfig             ablation;          // -a / --ablate        (default: NONE)
     int                        n_tokens = 50;     // -n / --n-tokens
 };
 
@@ -40,8 +42,51 @@ void print_usage(const char* prog) {
         "                            (neither -p nor -f: read the prompt from stdin)\n"
         "  -o, --output <path>       write the complete response to a file\n"
         "  -n, --n-tokens <count>    number of tokens to generate (default 50)\n"
-        "  -i, --interp <dump file>  run one forward pass and dump the interp cache\n"
+        "  -i, --interp <dump file>  dump the interp cache — the run's last forward\n"
+        "                            pass, so the prompt plus the tokens generated\n"
+        "                            before it\n"
+        "  -a, --ablate <kind>:<n>   drop one layer's sublayer output, so the stream\n"
+        "                            passes it by: zero-attn:<n> or zero-mlp:<n>\n"
         "  -h, --help                show this help\n";
+}
+
+// Turns "zero-attn:5" into a config. The patch variants have no spelling here:
+// they need a values-file format, so v1 exposes them programmatically only.
+AblationConfig parse_ablation(std::string_view spec) {
+    const size_t colon = spec.find(':');
+    if (colon == std::string_view::npos)
+        die("--ablate wants <kind>:<layer>, e.g. zero-attn:5");
+
+    const std::string_view kind  = spec.substr(0, colon);
+    const std::string_view layer = spec.substr(colon + 1);
+
+    AblationConfig ablation;
+    if      (kind == "zero-attn") ablation.type = AblationType::ZERO_ATTENTION;
+    else if (kind == "zero-mlp")  ablation.type = AblationType::ZERO_MLP;
+    else                          die("--ablate kind must be zero-attn or zero-mlp, got: " + std::string(kind));
+
+    // Checked here so a typo reports itself, rather than std::stoul throwing or
+    // "-1" wrapping into a layer index no error message can explain.
+    if (layer.empty() || layer.find_first_not_of("0123456789") != std::string_view::npos)
+        die("--ablate layer must be a non-negative integer, got: " + std::string(layer));
+
+    ablation.target_layer = std::stoul(std::string(layer));
+    return ablation;
+}
+
+// One-line note for a run whose output would otherwise be unexplained.
+std::string describe_ablation(const AblationConfig& ablation) {
+    const std::string layer = " at layer " + std::to_string(ablation.target_layer);
+
+    switch (ablation.type) {
+        case AblationType::ZERO_ATTENTION:  return "zeroing attention output" + layer;
+        case AblationType::ZERO_MLP:        return "zeroing MLP output" + layer;
+        case AblationType::PATCH_ATTENTION: return "patching attention output" + layer;
+        case AblationType::PATCH_MLP:       return "patching MLP output" + layer;
+        case AblationType::NONE:            break;
+    }
+
+    return "none";
 }
 
 Options parse_args(int argc, char* argv[]) {
@@ -61,6 +106,7 @@ Options parse_args(int argc, char* argv[]) {
         else if (a == "-f" || a == "--prompt-file") opt.prompt_file = std::string(value(a));
         else if (a == "-o" || a == "--output")      opt.output      = std::string(value(a));
         else if (a == "-i" || a == "--interp")      opt.interp_dump = std::string(value(a));
+        else if (a == "-a" || a == "--ablate")      opt.ablation    = parse_ablation(value(a));
         else if (a == "-n" || a == "--n-tokens")    opt.n_tokens    = std::stoi(std::string(value(a)));
         else if (a == "-h" || a == "--help")        { print_usage(argv[0]); std::exit(0); }
         else if (!a.empty() && a[0] == '-')         die("unknown flag: " + std::string(a));
@@ -104,14 +150,27 @@ int main(int argc, char* argv[]) {
     const std::string prompt = resolve_prompt(opt);
     std::vector<int>  ids    = encode(prompt, model.vocab, model.merge);
     if (ids.empty()) die("empty prompt");
+    const size_t n_prompt_tokens { ids.size() };
 
-    // Interp capture init
-    ModelCache    cache {};
-    InterpContext interpctx {};
-    size_t        cached_seq_len { 0 };
+    // Interp init. Ablation is independent of capture — either, both, or neither.
+    ModelCache       cache {};
+    InterpContext    interpctx {};
+    std::vector<int> cached_ids;
+
+    interpctx.ablation = opt.ablation;
+    if (opt.ablation.type != AblationType::NONE) {
+        // forward() validates as well; doing it here too reports a bad flag
+        // before any generated text has reached stdout.
+        validate_ablation(opt.ablation, model.config, ids.size());
+        std::cerr << "ablation: " << describe_ablation(opt.ablation) << "\n";
+    }
 
     if (opt.interp_dump) {
-        cache = init_cache(model.config, ids.size());
+        // Size for the longest pass this run can reach, so the per-pass hook copies
+        // reuse the capacity instead of reallocating every token.
+        const size_t max_seq_len { std::min(n_prompt_tokens + static_cast<size_t>(opt.n_tokens),
+                                            model.config.n_ctx) };
+        cache = init_cache(model.config, max_seq_len);
         interpctx.cache = &cache;
     }
 
@@ -120,9 +179,8 @@ int main(int argc, char* argv[]) {
     std::cout << prompt << std::flush;
 
     for (int i = 0; i < opt.n_tokens && ids.size() < model.config.n_ctx; ++i) {
-        // Each pass overwrites the cache, so what survives the loop is the last
-        // one — and its seq_len is the ids length going in, before the append.
-        cached_seq_len = ids.size();
+        // Each pass overwrites the cache, so what survives the loop is the last one.
+        cached_ids = ids;
 
         Tensor x { forward(ids, model, interpctx) };
         std::vector<float> logits { lm_logits(x, model) };
@@ -143,20 +201,21 @@ int main(int argc, char* argv[]) {
     std::cout << "\n";
 
     if (opt.interp_dump) {
-        if (cached_seq_len == 0)
+        if (cached_ids.empty())
             die("no forward pass ran, so there are no activations to dump");
 
         std::ofstream file(*opt.interp_dump, std::ios::binary);
         if (!file) die("cannot open dump file: " + *opt.interp_dump);
 
-        dump_cache(file, cache, model.config, cached_seq_len);
+        dump_cache(file, cache, model.config, cached_ids, n_prompt_tokens, opt.ablation);
 
         // ofstream's destructor flushes but swallows any error, so close explicitly.
         file.close();
         if (!file) die("cannot finish writing dump file: " + *opt.interp_dump);
 
-        std::cerr << "wrote " << *opt.interp_dump << " (" << cached_seq_len
-                  << " tokens, " << model.config.n_layer << " layers)\n";
+        std::cerr << "wrote " << *opt.interp_dump << " (" << cached_ids.size()
+                  << " tokens, " << n_prompt_tokens << " from the prompt, "
+                  << model.config.n_layer << " layers)\n";
     }
 
     if (opt.output) {

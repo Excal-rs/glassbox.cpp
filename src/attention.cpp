@@ -44,6 +44,7 @@ Tensor attention(const Tensor& ids, const LayerNorm& ln_1, const Attention& attn
     if (interpctx.cache) {
         interpctx.cache->layers[layer_idx].attention_output = out.data;
     }
+    ablate_attention(out.data, interpctx.ablation, layer_idx);
 
     // Residual: add back the original (pre-LayerNorm) input
     for (size_t i = 0; i < out.data.size(); ++i){
