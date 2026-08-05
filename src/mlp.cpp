@@ -13,7 +13,7 @@ static inline float tanh_approx(float u);
 // --------- Public API ---------
 
 // Runs one block's MLP sublayer on x (shape {seq, n_embd})
-Tensor mlp(const Tensor& x, const LayerNorm& ln, const MLP& mlp, const Config& config)
+Tensor mlp(const Tensor& x, const LayerNorm& ln, const MLP& mlp, const Config& config, const InterpContext& interpctx, size_t layer_idx)
 {
     const size_t seq    = x.shape[0];
     const size_t n_embd = config.n_embd;
@@ -33,11 +33,24 @@ Tensor mlp(const Tensor& x, const LayerNorm& ln, const MLP& mlp, const Config& c
         v = tanh_approx(v);
     }
 
-    // DOwn projection
+    // Down projection
     Tensor out { matmul(h, mlp.c_proj.w) };
+
+    // Pass 1: add the c_proj bias only 
     for (size_t i = 0; i < seq; ++i){
         for (size_t j = 0; j < n_embd; ++j) {
-            out(i, j) += mlp.c_proj.b.data[j] + x(i, j);
+            out(i, j) += mlp.c_proj.b.data[j];
+        }
+    }
+    if (interpctx.cache) {
+        interpctx.cache->layers[layer_idx].mlp_output = out.data;
+    }
+    ablate_mlp(out.data, interpctx.ablation, layer_idx);
+
+    // Pass 2: add the residual
+    for (size_t i = 0; i < seq; ++i){
+        for (size_t j = 0; j < n_embd; ++j) {
+            out(i, j) += x(i, j);
         }
     }
 

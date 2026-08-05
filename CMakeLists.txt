@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.16)
 project(glassbox CXX)
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # Default to an optimized build — the forward pass is unusably slow at -O0.
@@ -13,6 +13,17 @@ endif()
 # Emit build/compile_commands.json so editors/IntelliSense pick up include paths
 # (e.g. fetched deps like nlohmann_json) without manual configuration.
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
+# Warning flags for our code only. Carried by an INTERFACE target rather than
+# CMAKE_CXX_FLAGS so the fetched dependencies (pcre2, nlohmann_json) keep their
+# own settings — their warnings aren't ours to fix, and burying real ones under
+# third-party noise is how a warning-clean build stops meaning anything.
+add_library(glassbox_warnings INTERFACE)
+if(MSVC)
+    target_compile_options(glassbox_warnings INTERFACE /W4)
+else()
+    target_compile_options(glassbox_warnings INTERFACE -Wall -Wextra)
+endif()
 
 # Prefer a system-installed PCRE2; otherwise fetch and build it from source.
 find_package(PCRE2 QUIET COMPONENTS 8BIT)

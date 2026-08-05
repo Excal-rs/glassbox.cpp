@@ -22,7 +22,7 @@ static Tensor output_projection(const Tensor& concat, const Attention& attn);
 // --------- Public API ---------
 
 // Runs one block's attention sublayer on x (shape {seq, n_embd})
-Tensor attention(const Tensor& ids, const LayerNorm& ln_1, const Attention& attn, const Config& config)
+Tensor attention(const Tensor& ids, const LayerNorm& ln_1, const Attention& attn, const Config& config, const InterpContext& interpctx, size_t layer_idx)
 {
     const float scale = 1.0f / std::sqrt(static_cast<float>(config.n_embd / config.n_head));
 
@@ -41,6 +41,10 @@ Tensor attention(const Tensor& ids, const LayerNorm& ln_1, const Attention& attn
     }
 
     Tensor out { output_projection(merge_heads(O), attn) };
+    if (interpctx.cache) {
+        interpctx.cache->layers[layer_idx].attention_output = out.data;
+    }
+    ablate_attention(out.data, interpctx.ablation, layer_idx);
 
     // Residual: add back the original (pre-LayerNorm) input
     for (size_t i = 0; i < out.data.size(); ++i){
