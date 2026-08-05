@@ -71,6 +71,21 @@ vcpkg_installed/
 Testing/
 .cache/
 
+# Python bytecode (tools/)
+__pycache__/
+*.py[cod]
+
+# Local venv for the interp verification harness (CPU-only torch + transformers,
+# needed by tools/verify_cache.py V2 only). Recreate with:
+#   python3 -m venv .venv
+#   .venv/bin/pip install --index-url https://download.pytorch.org/whl/cpu torch
+#   .venv/bin/pip install transformers
+.venv/
+
+# Interp cache dumps — regenerate with `glassbox_cli <model> -p "..." -i <path>`.
+# ~750 KB per pass for GPT-2 small, growing linearly with prompt length.
+*.gbic
+
 # local-only tests
 tests/
 

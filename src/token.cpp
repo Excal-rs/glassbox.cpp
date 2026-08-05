@@ -195,7 +195,7 @@ static std::vector<std::string> merge_chunk(std::vector<std::string> chunk, cons
     while (chunk.size() > 1) {
         std::pair<int, int> best = {-1, std::numeric_limits<int>::max()};   // {index, rank}
 
-        for (int i = 0; i + 1 < chunk.size(); ++i) {
+        for (size_t i = 0; i + 1 < chunk.size(); ++i) {
             auto it = merge.find(chunk[i] + " " + chunk[i + 1]);
             if (it != merge.end() && it->second < best.second) {
                 best = {i, it->second};

@@ -14,6 +14,17 @@ endif()
 # (e.g. fetched deps like nlohmann_json) without manual configuration.
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+# Warning flags for our code only. Carried by an INTERFACE target rather than
+# CMAKE_CXX_FLAGS so the fetched dependencies (pcre2, nlohmann_json) keep their
+# own settings — their warnings aren't ours to fix, and burying real ones under
+# third-party noise is how a warning-clean build stops meaning anything.
+add_library(glassbox_warnings INTERFACE)
+if(MSVC)
+    target_compile_options(glassbox_warnings INTERFACE /W4)
+else()
+    target_compile_options(glassbox_warnings INTERFACE -Wall -Wextra)
+endif()
+
 # Prefer a system-installed PCRE2; otherwise fetch and build it from source.
 find_package(PCRE2 QUIET COMPONENTS 8BIT)
 

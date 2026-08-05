@@ -53,7 +53,6 @@ void dump_cache(std::ostream& file, const ModelCache& cache, const Config& confi
         write_buffer(file, layer.stream_post_mlp,       stream_size);
     }
 
-    // ostream failure is sticky, so one check here catches a fault anywhere above.
     if (!file) die("dump_cache: write failed");
 }
 
