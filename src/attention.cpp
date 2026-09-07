@@ -4,6 +4,7 @@
 #include "glassbox/layernorm.h"
 #include "glassbox/utils.h"
 #include "glassbox/attention.h"
+#include "glassbox/bench.h"
 
 // --------- Constants ---------
 
@@ -14,7 +15,7 @@ static constexpr float NEG_INF = -std::numeric_limits<float>::infinity();
 
 static std::array<Tensor, 3> qkv_projection(const Tensor& xn, const Attention& attn, const Config& config);
 static std::vector<Tensor> split_heads(const Tensor& m, const Config& config);
-static Tensor attention_head(const Tensor& Q, const Tensor& K, const Tensor& V, float scale);
+static Tensor attention_head(const Tensor& Q, const Tensor& K, const Tensor& V, float scale, Profile* profile, size_t layer_idx);
 static Tensor merge_heads(const std::vector<Tensor>& heads);
 static Tensor output_projection(const Tensor& concat, const Attention& attn);
 
@@ -22,33 +23,62 @@ static Tensor output_projection(const Tensor& concat, const Attention& attn);
 // --------- Public API ---------
 
 // Runs one block's attention sublayer on x (shape {seq, n_embd})
-Tensor attention(const Tensor& ids, const LayerNorm& ln_1, const Attention& attn, const Config& config, const InterpContext& interpctx, size_t layer_idx)
+Tensor attention(const Tensor& ids, const LayerNorm& ln_1, const Attention& attn, const Config& config, const InterpContext& interpctx, size_t layer_idx, Profile* profile)
 {
-    const float scale = 1.0f / std::sqrt(static_cast<float>(config.n_embd / config.n_head));
+    const float  scale  = 1.0f / std::sqrt(static_cast<float>(config.n_embd / config.n_head));
+    const size_t seq    = ids.shape[0];
+    const size_t n_embd = config.n_embd;
 
-    Tensor xn                 { layernorm(ids, ln_1, config.ln_eps) };
-    std::array<Tensor, 3> QKV { qkv_projection(xn, attn, config) };
+    Tensor xn;
+    {
+        ScopeTimer timer { profile, Component::LN, layer_idx, elementwise_cost(seq * n_embd, 5) };
+        xn = layernorm(ids, ln_1, config.ln_eps);
+    }
+
+    std::array<Tensor, 3> QKV;
+    {
+        ScopeTimer timer { profile, Component::QKV, layer_idx, matmul_cost(seq, n_embd, 3 * n_embd) };
+        QKV = qkv_projection(xn, attn, config);
+    }
 
     // Split each of Q, K, V into their per-head matrices
-    std::vector<Tensor> Q { split_heads(QKV[0], config) };
-    std::vector<Tensor> K { split_heads(QKV[1], config) };
-    std::vector<Tensor> V { split_heads(QKV[2], config) };
+    std::vector<Tensor> Q, K, V;
+    {
+        ScopeTimer timer { profile, Component::SPLIT, layer_idx, copy_cost(3 * seq * n_embd) };
+        Q = split_heads(QKV[0], config);
+        K = split_heads(QKV[1], config);
+        V = split_heads(QKV[2], config);
+    }
 
     // Run attention on each head independently
     std::vector<Tensor> O(config.n_head);
     for (size_t h = 0; h < config.n_head; ++h){
-        O[h] = attention_head(Q[h], K[h], V[h], scale);
+        O[h] = attention_head(Q[h], K[h], V[h], scale, profile, layer_idx);
     }
 
-    Tensor out { output_projection(merge_heads(O), attn) };
+    Tensor merged;
+    {
+        ScopeTimer timer { profile, Component::MERGE, layer_idx, copy_cost(seq * n_embd) };
+        merged = merge_heads(O);
+    }
+
+    Tensor out;
+    {
+        ScopeTimer timer { profile, Component::ATTN_PROJ, layer_idx, matmul_cost(seq, n_embd, n_embd) };
+        out = output_projection(merged, attn);
+    }
+
     if (interpctx.cache) {
         interpctx.cache->layers[layer_idx].attention_output = out.data;
     }
     ablate_attention(out.data, interpctx.ablation, layer_idx);
 
     // Residual: add back the original (pre-LayerNorm) input
-    for (size_t i = 0; i < out.data.size(); ++i){
-        out.data[i] += ids.data[i];
+    {
+        ScopeTimer timer { profile, Component::RESIDUAL, layer_idx, elementwise_cost(seq * n_embd, 1) };
+        for (size_t i = 0; i < out.data.size(); ++i){
+            out.data[i] += ids.data[i];
+        }
     }
 
     return out;
@@ -117,32 +147,50 @@ static std::vector<Tensor> split_heads(const Tensor& m, const Config& config)
     return heads;
 }
 
-static Tensor attention_head(const Tensor& Q, const Tensor& K, const Tensor& V, float scale)
+// transpose(K) is hoisted out of the matmul call so the copy is measured as
+// itself: it does no arithmetic, and folding it into `scores` would hide that.
+static Tensor attention_head(const Tensor& Q, const Tensor& K, const Tensor& V, float scale, Profile* profile, size_t layer_idx)
 {
-    auto seq = Q.shape[0];
-    Tensor S = matmul(Q, transpose(K));
+    const size_t seq      = Q.shape[0];
+    const size_t head_dim = Q.shape[1];
 
-    for (size_t i = 0; i < seq; ++i){
-        // Scale and mask future positions
-        float row_max = NEG_INF;
-        for (size_t j = 0; j < seq; ++j){
-            const float s = (j > i) ? NEG_INF : S(i, j) * scale;
-            S(i, j) = s;
-            if (s > row_max) row_max = s;
-        }
+    Tensor Kt;
+    {
+        ScopeTimer timer { profile, Component::TRANSPOSE, layer_idx, copy_cost(seq * head_dim) };
+        Kt = transpose(K);
+    }
 
-        // Softmax over the row
-        float sum = 0.0f;
-        for (size_t j = 0; j < seq; ++j){
-            const float e = std::exp(S(i, j) - row_max);
-            S(i, j) = e;
-            sum += e;
-        }
-        for (size_t j = 0; j < seq; ++j){
-            S(i, j) /= sum;
+    Tensor S;
+    {
+        ScopeTimer timer { profile, Component::SCORES, layer_idx, matmul_cost(seq, head_dim, seq) };
+        S = matmul(Q, Kt);
+    }
+
+    {
+        ScopeTimer timer { profile, Component::SOFTMAX, layer_idx, elementwise_cost(seq * seq, 4) };
+        for (size_t i = 0; i < seq; ++i){
+            // Scale and mask future positions
+            float row_max = NEG_INF;
+            for (size_t j = 0; j < seq; ++j){
+                const float s = (j > i) ? NEG_INF : S(i, j) * scale;
+                S(i, j) = s;
+                if (s > row_max) row_max = s;
+            }
+
+            // Softmax over the row
+            float sum = 0.0f;
+            for (size_t j = 0; j < seq; ++j){
+                const float e = std::exp(S(i, j) - row_max);
+                S(i, j) = e;
+                sum += e;
+            }
+            for (size_t j = 0; j < seq; ++j){
+                S(i, j) /= sum;
+            }
         }
     }
 
+    ScopeTimer timer { profile, Component::AV, layer_idx, matmul_cost(seq, seq, head_dim) };
     return matmul(S, V);
 }
 

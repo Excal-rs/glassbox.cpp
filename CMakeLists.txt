@@ -4,11 +4,20 @@ project(glassbox CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# Default to an optimized build — the forward pass is unusably slow at -O0.
+# Default to an optimized build - the forward pass is unusably slow at -O0.
 # Override with -DCMAKE_BUILD_TYPE=Debug when debugging.
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
     set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
 endif()
+
+# Stamped into benchmark rows so a CSV says which code produced it. Read at
+# configure time, so it goes stale if you rebuild without re-running cmake -
+# tools/bench.py reports git's answer next to it and warns when they differ.
+execute_process(COMMAND git rev-parse --short HEAD
+                WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+                OUTPUT_VARIABLE GLASSBOX_COMMIT
+                OUTPUT_STRIP_TRAILING_WHITESPACE
+                ERROR_QUIET)
 
 # Emit build/compile_commands.json so editors/IntelliSense pick up include paths
 # (e.g. fetched deps like nlohmann_json) without manual configuration.
@@ -16,7 +25,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # Warning flags for our code only. Carried by an INTERFACE target rather than
 # CMAKE_CXX_FLAGS so the fetched dependencies (pcre2, nlohmann_json) keep their
-# own settings — their warnings aren't ours to fix, and burying real ones under
+# own settings - their warnings aren't ours to fix, and burying real ones under
 # third-party noise is how a warning-clean build stops meaning anything.
 add_library(glassbox_warnings INTERFACE)
 if(MSVC)

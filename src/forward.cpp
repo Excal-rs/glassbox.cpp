@@ -4,18 +4,25 @@
 #include "glassbox/attention.h"
 #include "glassbox/mlp.h"
 #include "glassbox/forward.h"
+#include "glassbox/bench.h"
 
 // --------- Public API ---------
 
 // Contract is documented in forward.h.
-Tensor forward(const std::vector<int>& ids, const Model& model, const InterpContext& interpctx)
+Tensor forward(const std::vector<int>& ids, const Model& model, const InterpContext& interpctx, Profile* profile)
 {
     const Config&  config  = model.config;
     const Network& network = model.network;
+    const size_t   seq     = ids.size();
 
-    validate_ablation(interpctx.ablation, config, ids.size());
+    validate_ablation(interpctx.ablation, config, seq);
 
-    Tensor x { embed(ids, model) };
+    // Anything outside a block is attributed to layer n_layer.
+    Tensor x;
+    {
+        ScopeTimer timer { profile, Component::EMBED, config.n_layer, copy_cost(seq * config.n_embd) };
+        x = embed(ids, model);
+    }
 
     // Checkpoint: the residual stream entering the first block (wte + wpe).
     if (interpctx.cache) {
@@ -26,28 +33,31 @@ Tensor forward(const std::vector<int>& ids, const Model& model, const InterpCont
     for (size_t layer_idx = 0; layer_idx < network.h.size(); ++layer_idx){
         const Block& block = network.h[layer_idx];
 
-        x = attention(x, block.ln_1, block.attn, config, interpctx, layer_idx);
+        x = attention(x, block.ln_1, block.attn, config, interpctx, layer_idx, profile);
         if (interpctx.cache) {
             interpctx.cache->layers[layer_idx].stream_post_attention = x.data;
         }
 
-        x = mlp(x, block.ln_2, block.mlp, config, interpctx, layer_idx);
+        x = mlp(x, block.ln_2, block.mlp, config, interpctx, layer_idx, profile);
         if (interpctx.cache) {
             interpctx.cache->layers[layer_idx].stream_post_mlp = x.data;
         }
     }
 
+    ScopeTimer timer { profile, Component::LN_F, config.n_layer, elementwise_cost(seq * config.n_embd, 5) };
     return layernorm(x, network.ln_f, config.ln_eps);
 }
 
 // logits[t] = dot(h, wte[t]) with h the last row of x - the tied wte matrix
 // used in the output direction (the one transposed matmul in GPT-2).
-std::vector<float> lm_logits(const Tensor& x, const Model& model)
+std::vector<float> lm_logits(const Tensor& x, const Model& model, Profile* profile)
 {
     const Tensor& wte     = model.network.wte;
     const size_t  last    = x.shape[0] - 1;
     const size_t  n_embd  = x.shape[1];
     const size_t  n_vocab = model.config.n_vocab;
+
+    ScopeTimer timer { profile, Component::LOGITS, model.config.n_layer, matmul_cost(1, n_embd, n_vocab) };
 
     std::vector<float> logits(n_vocab);
     for (size_t t = 0; t < n_vocab; ++t){

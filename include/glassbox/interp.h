@@ -39,7 +39,7 @@ struct AblationConfig {
     size_t             target_layer = NO_LAYER;
 
     // PATCH_* only: replaces the sublayer output wholesale, so these are
-    // post-bias values. Sized for one pass (seq_len * n_embd) — seq_len grows
+    // post-bias values. Sized for one pass (seq_len * n_embd) - seq_len grows
     // with every generated token, so a patch outlives only a single forward().
     std::vector<float> patch_values;
 };

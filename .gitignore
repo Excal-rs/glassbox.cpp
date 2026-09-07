@@ -82,7 +82,7 @@ __pycache__/
 #   .venv/bin/pip install transformers
 .venv/
 
-# Interp cache dumps — regenerate with `glassbox_cli <model> -p "..." -i <path>`.
+# Interp cache dumps - regenerate with `glassbox_cli <model> -p "..." -i <path>`.
 # ~750 KB per pass for GPT-2 small, growing linearly with prompt length.
 *.gbic
 

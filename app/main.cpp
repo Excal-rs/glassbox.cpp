@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <chrono>
 #include <cstddef>
 #include <cstdlib>
 #include <fstream>
@@ -12,26 +13,28 @@
 #include "glassbox/token.h"
 #include "glassbox/forward.h"
 #include "glassbox/interp.h"
+#include "glassbox/bench.h"
 #include "glassbox/utils.h"
 
 // --------- Constants ---------
 
 static constexpr size_t END_OF_TEXT = 50256;
 
-
-
 // --------- CLI Options ---------
 //
 // parse_args() turns argv into this struct; nothing downstream reads argv.
 // Adding a flag = add a field here + one branch in parse_args().
 struct Options {
-    std::string                model_dir;         // required positional
-    std::optional<std::string> prompt;            // -p / --prompt        (inline)
-    std::optional<std::string> prompt_file;       // -f / --prompt-file
-    std::optional<std::string> output;            // -o / --output
-    std::optional<std::string> interp_dump;       // -i / --interp <path> (presence = on)
-    AblationConfig             ablation;          // -a / --ablate        (default: NONE)
-    int                        n_tokens = 50;     // -n / --n-tokens
+    std::string                model_dir;                // required positional
+    std::optional<std::string> prompt;                   // -p / --prompt        (inline)
+    std::optional<std::string> prompt_file;              // -f / --prompt-file
+    std::optional<std::string> output;                   // -o / --output
+    std::optional<std::string> interp_dump;              // -i / --interp <path> (presence = on)
+    AblationConfig             ablation;                 // -a / --ablate        (default: NONE)
+    int                        n_tokens {50};            // -n / --n-tokens
+    bool                       benchmarking { false };    // -b / --benchmark
+    std::string                bench_out {"benchmarks.csv"};  // --bench-out <path>
+    std::string                bench_tag;                 // --bench-tag <text>
 };
 
 void print_usage(const char* prog) {
@@ -42,11 +45,14 @@ void print_usage(const char* prog) {
         "                            (neither -p nor -f: read the prompt from stdin)\n"
         "  -o, --output <path>       write the complete response to a file\n"
         "  -n, --n-tokens <count>    number of tokens to generate (default 50)\n"
-        "  -i, --interp <dump file>  dump the interp cache — the run's last forward\n"
+        "  -i, --interp <dump file>  dump the interp cache - the run's last forward\n"
         "                            pass, so the prompt plus the tokens generated\n"
         "                            before it\n"
         "  -a, --ablate <kind>:<n>   drop one layer's sublayer output, so the stream\n"
         "                            passes it by: zero-attn:<n> or zero-mlp:<n>\n"
+        "  -b, --benchmark           time every component and append them to a CSV\n"
+        "      --bench-out <path>    where those rows go (default benchmarks.csv)\n"
+        "      --bench-tag <text>    stored on every row, for a sweep to label runs by\n"
         "  -h, --help                show this help\n";
 }
 
@@ -108,6 +114,9 @@ Options parse_args(int argc, char* argv[]) {
         else if (a == "-i" || a == "--interp")      opt.interp_dump = std::string(value(a));
         else if (a == "-a" || a == "--ablate")      opt.ablation    = parse_ablation(value(a));
         else if (a == "-n" || a == "--n-tokens")    opt.n_tokens    = std::stoi(std::string(value(a)));
+        else if (a == "-b" || a == "--benchmark")   opt.benchmarking = true;
+        else if (a == "--bench-out")                opt.bench_out   = std::string(value(a));
+        else if (a == "--bench-tag")                opt.bench_tag   = std::string(value(a));
         else if (a == "-h" || a == "--help")        { print_usage(argv[0]); std::exit(0); }
         else if (!a.empty() && a[0] == '-')         die("unknown flag: " + std::string(a));
         else                                        positionals.push_back(a);
@@ -145,14 +154,25 @@ std::string resolve_prompt(const Options& opt) {
 int main(int argc, char* argv[]) {
     const Options opt = parse_args(argc, argv);
 
+#ifndef NDEBUG
+    if (opt.benchmarking)
+        std::cerr << "warning: benchmarking a build without NDEBUG - the numbers will not mean much\n";
+#endif
+
+    const auto load_started = std::chrono::steady_clock::now();
     Model model = load_model(opt.model_dir);
+    const size_t load_ns { elapsed_ns(load_started) };
 
     const std::string prompt = resolve_prompt(opt);
-    std::vector<int>  ids    = encode(prompt, model.vocab, model.merge);
+
+    const auto encode_started = std::chrono::steady_clock::now();
+    std::vector<int> ids = encode(prompt, model.vocab, model.merge);
+    const size_t encode_ns { elapsed_ns(encode_started) };
+
     if (ids.empty()) die("empty prompt");
     const size_t n_prompt_tokens { ids.size() };
 
-    // Interp init. Ablation is independent of capture — either, both, or neither.
+    // Interp init. Ablation is independent of capture - either, both, or neither.
     ModelCache       cache {};
     InterpContext    interpctx {};
     std::vector<int> cached_ids;
@@ -163,6 +183,17 @@ int main(int argc, char* argv[]) {
         // before any generated text has reached stdout.
         validate_ablation(opt.ablation, model.config, ids.size());
         std::cerr << "ablation: " << describe_ablation(opt.ablation) << "\n";
+    }
+
+    // Benchmark init. The profile is owned here and handed to forward() as a
+    // pointer, so a run without -b pays one null check per component.
+    Profile  profile {};
+    Profile* profilep { nullptr };
+    if (opt.benchmarking) {
+        profile  = init_profile(model.config);
+        profilep = &profile;
+        record_stage(profile, Component::LOAD, load_ns);
+        record_stage(profile, Component::ENCODE, encode_ns);
     }
 
     if (opt.interp_dump) {
@@ -182,8 +213,13 @@ int main(int argc, char* argv[]) {
         // Each pass overwrites the cache, so what survives the loop is the last one.
         cached_ids = ids;
 
-        Tensor x { forward(ids, model, interpctx) };
-        std::vector<float> logits { lm_logits(x, model) };
+        profile.pass_index = static_cast<size_t>(i);
+        profile.seq_len    = ids.size();
+
+        const auto pass_started = std::chrono::steady_clock::now();
+        Tensor x { forward(ids, model, interpctx, profilep) };
+        std::vector<float> logits { lm_logits(x, model, profilep) };
+        const size_t pass_ns { elapsed_ns(pass_started) };
 
         // Greedy decoding, currently being used for testing, TODO: Add other modes and flags for this
         size_t best = 0;
@@ -194,11 +230,26 @@ int main(int argc, char* argv[]) {
         if (best == END_OF_TEXT) break;
 
         ids.push_back(static_cast<int>(best));
+
+        const auto decode_started = std::chrono::steady_clock::now();
         const std::string piece = decode({static_cast<int>(best)}, model.vocab);
+        const size_t decode_ns { elapsed_ns(decode_started) };
+
+        if (opt.benchmarking) {
+            record_stage(profile, Component::DECODE, decode_ns);
+            record_stage(profile, Component::PASS, pass_ns);
+            finish_pass(profile, static_cast<size_t>(i), profile.seq_len);
+        }
+
         response += piece;
         std::cout << piece << std::flush;
     }
     std::cout << "\n";
+
+    if (opt.benchmarking) {
+        write_profile(opt.bench_out, profile, opt.bench_tag);
+        std::cerr << "wrote " << profile.rows.size() << " benchmark rows to " << opt.bench_out << "\n";
+    }
 
     if (opt.interp_dump) {
         if (cached_ids.empty())

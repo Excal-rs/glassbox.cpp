@@ -27,7 +27,7 @@ ModelCache init_cache(const Config& config, const size_t seq_len){
         cache.layers[i].mlp_output            = std::vector<float>(stream_size);
         cache.layers[i].stream_post_mlp       = std::vector<float>(stream_size);
     }
-    
+
     return cache;
 }
 
@@ -43,7 +43,7 @@ void dump_cache(std::ostream& file, const ModelCache& cache, const Config& confi
     if (cache.layers.size() != config.n_layer)       die("dump_cache: layer count does not match config");
 
     // Header: 32 bytes, then one u32 per token. The ablation fields say how the
-    // pass was perturbed — without them an ablated dump reads as a clean one.
+    // pass was perturbed - without them an ablated dump reads as a clean one.
     // patch_values are not recorded: whoever supplied them already has them.
     file.write("GBIC", 4);
     write_u32(file, 2);
@@ -73,7 +73,7 @@ void dump_cache(std::ostream& file, const ModelCache& cache, const Config& confi
 
 
 // The layer check also handles AblationType::NONE, whose NO_LAYER target
-// matches no real index — so an interp-free run pays one integer compare.
+// matches no real index - so an interp-free run pays one integer compare.
 void ablate_attention(std::vector<float>& sublayer_out, const AblationConfig& ablation, const size_t layer_idx)
 {
     if (layer_idx != ablation.target_layer) return;
