@@ -40,8 +40,8 @@ Tensor forward(const std::vector<int>& ids, const Model& model, const InterpCont
     return layernorm(x, network.ln_f, config.ln_eps);
 }
 
-// logits[t] = dot(h, wte[t]) with h the last row of x — the tied wte matrix
-// used in the output direction (the one transposed matmul in GPT-2). 
+// logits[t] = dot(h, wte[t]) with h the last row of x - the tied wte matrix
+// used in the output direction (the one transposed matmul in GPT-2).
 std::vector<float> lm_logits(const Tensor& x, const Model& model)
 {
     const Tensor& wte     = model.network.wte;

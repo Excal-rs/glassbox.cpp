@@ -5,4 +5,3 @@
 
 // --------- Public API ---------
 Tensor embed(const std::vector<int>& tokens, const Model& model);
-
