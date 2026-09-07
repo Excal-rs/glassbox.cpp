@@ -1,0 +1,7 @@
+tag,commit,date,prompt_chars,n_tokens,repeat,cpu,cores,l1d,l2,l3,governor,note
+13c1337-dirty-20260907T143202-n16-r0,13c1337-dirty,2026-09-07T14:32:08,24,16,0,Intel(R) Core(TM) Ultra 7 155H,22,48K,2048K,24576K,powersave,
+13c1337-dirty-20260907T143202-n16-r1,13c1337-dirty,2026-09-07T14:32:14,24,16,1,Intel(R) Core(TM) Ultra 7 155H,22,48K,2048K,24576K,powersave,
+13c1337-dirty-20260907T143202-n16-r2,13c1337-dirty,2026-09-07T14:32:20,24,16,2,Intel(R) Core(TM) Ultra 7 155H,22,48K,2048K,24576K,powersave,
+13c1337-dirty-20260907T143436-n16-r0,13c1337-dirty,2026-09-07T14:34:39,24,16,0,Intel(R) Core(TM) Ultra 7 155H,22,48K,2048K,24576K,performance,performance governor baseline
+13c1337-dirty-20260907T143436-n16-r1,13c1337-dirty,2026-09-07T14:34:42,24,16,1,Intel(R) Core(TM) Ultra 7 155H,22,48K,2048K,24576K,performance,performance governor baseline
+13c1337-dirty-20260907T143436-n16-r2,13c1337-dirty,2026-09-07T14:34:44,24,16,2,Intel(R) Core(TM) Ultra 7 155H,22,48K,2048K,24576K,performance,performance governor baseline
