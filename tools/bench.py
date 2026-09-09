@@ -96,9 +96,14 @@ def probe_machine():
 # The commit the binary was *run* from. The engine bakes one in at configure
 # time, which goes stale the moment you rebuild without re-running cmake, so
 # this is the one worth trusting -- mismatches are reported, not silently kept.
-def probe_commit():
+#
+# The CSVs this script writes are excluded from the dirty check: appending
+# measurements to them is not a change to the code that produced them, and once
+# they are tracked every run would otherwise report the next one as dirty.
+def probe_commit(written):
     commit = git("rev-parse", "--short", "HEAD")
-    dirty  = git("status", "--porcelain", "--untracked-files=no")
+    changed = [line[3:] for line in git("status", "--porcelain", "--untracked-files=no").splitlines()]
+    dirty   = [path for path in changed if os.path.abspath(os.path.join(REPO, path)) not in written]
     return commit + ("-dirty" if dirty else "")
 
 
@@ -352,7 +357,7 @@ def main():
         return self_test()
 
     machine = probe_machine()
-    commit  = probe_commit()
+    commit  = probe_commit({os.path.abspath(args.detail), os.path.abspath(args.runs)})
 
     warnings = []
     if machine.governor != "performance":

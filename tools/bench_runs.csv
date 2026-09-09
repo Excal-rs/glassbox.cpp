@@ -5,3 +5,10 @@ tag,commit,date,prompt_chars,n_tokens,repeat,cpu,cores,l1d,l2,l3,governor,note
 13c1337-dirty-20260907T143436-n16-r0,13c1337-dirty,2026-09-07T14:34:39,24,16,0,Intel(R) Core(TM) Ultra 7 155H,22,48K,2048K,24576K,performance,performance governor baseline
 13c1337-dirty-20260907T143436-n16-r1,13c1337-dirty,2026-09-07T14:34:42,24,16,1,Intel(R) Core(TM) Ultra 7 155H,22,48K,2048K,24576K,performance,performance governor baseline
 13c1337-dirty-20260907T143436-n16-r2,13c1337-dirty,2026-09-07T14:34:44,24,16,2,Intel(R) Core(TM) Ultra 7 155H,22,48K,2048K,24576K,performance,performance governor baseline
+6cbde31-20260907T145348-n16-r0,6cbde31,2026-09-07T14:53:51,24,16,0,Intel(R) Core(TM) Ultra 7 155H,22,48K,2048K,24576K,performance,
+6cbde31-20260907T145348-n16-r1,6cbde31,2026-09-07T14:53:53,24,16,1,Intel(R) Core(TM) Ultra 7 155H,22,48K,2048K,24576K,performance,
+6cbde31-20260907T145348-n16-r2,6cbde31,2026-09-07T14:53:56,24,16,2,Intel(R) Core(TM) Ultra 7 155H,22,48K,2048K,24576K,performance,
+6cbde31-20260907T145348-n16-r3,6cbde31,2026-09-07T14:53:59,24,16,3,Intel(R) Core(TM) Ultra 7 155H,22,48K,2048K,24576K,performance,
+6cbde31-20260907T145348-n16-r4,6cbde31,2026-09-07T14:54:02,24,16,4,Intel(R) Core(TM) Ultra 7 155H,22,48K,2048K,24576K,performance,
+6cbde31-dirty-20260907T145435-n16-r0,6cbde31-dirty,2026-09-07T14:54:38,24,16,0,Intel(R) Core(TM) Ultra 7 155H,22,48K,2048K,24576K,performance,
+6cbde31-dirty-20260907T145435-n16-r1,6cbde31-dirty,2026-09-07T14:54:41,24,16,1,Intel(R) Core(TM) Ultra 7 155H,22,48K,2048K,24576K,performance,
