@@ -30,6 +30,7 @@ Tensor matmul(const Tensor& a, const Tensor& b)
         .shape = {m, n}
     };
 
+    // Auto-vectorised for loop
     for (size_t i {0}; i < m; ++i){
         for (size_t p {0}; p < k; ++p){
             const float a_ip = a.data[i * k + p];
