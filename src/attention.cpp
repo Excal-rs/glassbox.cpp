@@ -4,7 +4,7 @@
 #include "glassbox/layernorm.h"
 #include "glassbox/utils.h"
 #include "glassbox/attention.h"
-#include "glassbox/bench.h"
+#include "glassbox/benchmarking.h"
 
 // --------- Constants ---------
 

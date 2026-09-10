@@ -2,7 +2,7 @@
 #include "glassbox/layernorm.h"
 #include "glassbox/utils.h"
 #include "glassbox/mlp.h"
-#include "glassbox/bench.h"
+#include "glassbox/benchmarking.h"
 
 // --------- Constants ---------
 static constexpr float GELU_SCALE = 0.7978845608f; // This is what GPT-2 was trained with as the approximation, therefore using this instead of exact value

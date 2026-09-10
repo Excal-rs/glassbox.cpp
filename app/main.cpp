@@ -6,7 +6,7 @@
 #include "glassbox/token.h"
 #include "glassbox/forward.h"
 #include "glassbox/interp.h"
-#include "glassbox/bench.h"
+#include "glassbox/benchmarking.h"
 #include "glassbox/utils.h"
 
 // stdlib includes
@@ -19,11 +19,6 @@
 #include <string>
 #include <vector>
 
-
-
-
-// --------- Entry Point ---------
-
 int main(int argc, char* argv[]) {
     const Options opt = parse_arguments(argc, argv);
 
@@ -32,14 +27,16 @@ int main(int argc, char* argv[]) {
         std::cerr << "warning: benchmarking a build without NDEBUG - the numbers will not mean much\n";
 #endif
 
-    const auto load_started = std::chrono::steady_clock::now();
-    Model model = load_model(opt.model_dir);
+    // Load (and time) model
+    const auto load_started { std::chrono::steady_clock::now() };
+    Model model { load_model(opt.model_dir) };
     const size_t load_ns { elapsed_ns(load_started) };
 
-    const std::string prompt = resolve_prompt(opt);
+    const std::string prompt { resolve_prompt(opt) };
 
-    const auto encode_started = std::chrono::steady_clock::now();
-    std::vector<int> ids = encode(prompt, model.vocab, model.merge);
+    // Encode prompt into tokens (and time)
+    const auto encode_started { std::chrono::steady_clock::now() };
+    std::vector<int> ids { encode(prompt, model.vocab, model.merge) };
     const size_t encode_ns { elapsed_ns(encode_started) };
 
     if (ids.empty()) die("empty prompt");
@@ -125,17 +122,16 @@ int main(int argc, char* argv[]) {
     }
 
     if (opt.interp_dump_out) {
-        if (cached_ids.empty())
-            die("no forward pass ran, so there are no activations to dump");
+        if (cached_ids.empty()) die("no forward pass ran, so there are no activations to dump");
 
         std::ofstream file(*opt.interp_dump_out, std::ios::binary);
-        if (!file) die("cannot open dump file: " + *opt.interp_dump_out);
+        if (!file) die("cannot open interp dump file: " + *opt.interp_dump_out);
 
         dump_cache(file, cache, model.config, cached_ids, n_prompt_tokens, opt.ablation);
 
         // ofstream's destructor flushes but swallows any error, so close explicitly.
         file.close();
-        if (!file) die("cannot finish writing dump file: " + *opt.interp_dump_out);
+        if (!file) die("cannot finish writing interp dump file: " + *opt.interp_dump_out);
 
         std::cerr << "wrote " << *opt.interp_dump_out << " (" << cached_ids.size()
                   << " tokens, " << n_prompt_tokens << " from the prompt, "

@@ -4,7 +4,7 @@
 #include "glassbox/attention.h"
 #include "glassbox/mlp.h"
 #include "glassbox/forward.h"
-#include "glassbox/bench.h"
+#include "glassbox/benchmarking.h"
 
 // --------- Public API ---------
 

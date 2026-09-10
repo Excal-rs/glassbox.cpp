@@ -2,7 +2,7 @@
 #include <ctime>
 #include <fstream>
 #include <string>
-#include "glassbox/bench.h"
+#include "glassbox/benchmarking.h"
 #include "glassbox/utils.h"
 
 // Set by CMake from `git rev-parse --short HEAD` at configure time, so it goes
