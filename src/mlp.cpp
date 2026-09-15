@@ -19,25 +19,25 @@ Tensor mlp(const Tensor& x, const LayerNorm& ln, const MLP& mlp, const Config& c
     const size_t seq    = x.shape[0];
     const size_t n_embd = config.n_embd;
 
-    Tensor xn;
+    Tensor xn {};
     {
         ScopeTimer timer { profile, Component::LN, layer_idx, elementwise_cost(seq * n_embd, 5) };
         xn = layernorm(x, ln, config.ln_eps);
     }
 
     // Up Projection. The bias add shares the bucket with the matmul it follows.
-    Tensor h;
+    Tensor h {};
     {
         ScopeTimer timer { profile, Component::MLP_FC, layer_idx, matmul_cost(seq, n_embd, 4 * n_embd) };
-        h = matmul(xn, mlp.c_fc.w);
+        h = matmul(xn, mlp.c_fc.weight);
         for (size_t i = 0; i < seq; ++i){
             for (size_t j = 0; j < n_embd * 4; ++j) {
-                h(i, j) += mlp.c_fc.b.data[j];
+                h(i, j) += mlp.c_fc.bias.data[j];
             }
         }
     }
 
-    // GELU 
+    // GELU
     {
         ScopeTimer timer { profile, Component::GELU, layer_idx, elementwise_cost(seq * n_embd * 4, 10) };
         for (float& v : h.data){
@@ -46,15 +46,15 @@ Tensor mlp(const Tensor& x, const LayerNorm& ln, const MLP& mlp, const Config& c
     }
 
     // Down projection
-    Tensor out;
+    Tensor out {};
     {
         ScopeTimer timer { profile, Component::MLP_PROJ, layer_idx, matmul_cost(seq, 4 * n_embd, n_embd) };
-        out = matmul(h, mlp.c_proj.w);
+        out = matmul(h, mlp.c_proj.weight);
 
-        // Pass 1: add the c_proj bias only 
+        // Pass 1: add the c_proj bias only
         for (size_t i = 0; i < seq; ++i){
             for (size_t j = 0; j < n_embd; ++j) {
-                out(i, j) += mlp.c_proj.b.data[j];
+                out(i, j) += mlp.c_proj.bias.data[j];
             }
         }
     }

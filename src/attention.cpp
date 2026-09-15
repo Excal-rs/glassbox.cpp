@@ -29,20 +29,20 @@ Tensor attention(const Tensor& ids, const LayerNorm& ln_1, const Attention& attn
     const size_t seq    = ids.shape[0];
     const size_t n_embd = config.n_embd;
 
-    Tensor xn;
+    Tensor xn {};
     {
         ScopeTimer timer { profile, Component::LN, layer_idx, elementwise_cost(seq * n_embd, 5) };
         xn = layernorm(ids, ln_1, config.ln_eps);
     }
 
-    std::array<Tensor, 3> QKV;
+    std::array<Tensor, 3> QKV {};
     {
         ScopeTimer timer { profile, Component::QKV, layer_idx, matmul_cost(seq, n_embd, 3 * n_embd) };
         QKV = qkv_projection(xn, attn, config);
     }
 
     // Split each of Q, K, V into their per-head matrices
-    std::vector<Tensor> Q, K, V;
+    std::vector<Tensor> Q {}, K {}, V {};
     {
         ScopeTimer timer { profile, Component::SPLIT, layer_idx, copy_cost(3 * seq * n_embd) };
         Q = split_heads(QKV[0], config);
@@ -56,13 +56,13 @@ Tensor attention(const Tensor& ids, const LayerNorm& ln_1, const Attention& attn
         O[h] = attention_head(Q[h], K[h], V[h], scale, profile, layer_idx);
     }
 
-    Tensor merged;
+    Tensor merged {};
     {
         ScopeTimer timer { profile, Component::MERGE, layer_idx, copy_cost(seq * n_embd) };
         merged = merge_heads(O);
     }
 
-    Tensor out;
+    Tensor out {};
     {
         ScopeTimer timer { profile, Component::ATTN_PROJ, layer_idx, matmul_cost(seq, n_embd, n_embd) };
         out = output_projection(merged, attn);
@@ -95,10 +95,10 @@ static std::array<Tensor, 3> qkv_projection(const Tensor& xn, const Attention& a
     const size_t n_stride = n_embd * 3;
 
     // Perform (xn . w) + b
-    Tensor n { matmul(xn, attn.c_attn.w) };
+    Tensor n { matmul(xn, attn.c_attn.weight) };
     for (size_t t = 0; t < seq; ++t){
         for (size_t c = 0; c < n_stride; ++c){
-            n(t, c) += attn.c_attn.b.data[c];
+            n(t, c) += attn.c_attn.bias.data[c];
         }
     }
 
@@ -127,7 +127,7 @@ static std::vector<Tensor> split_heads(const Tensor& m, const Config& config)
     const size_t n_embd   = config.n_embd;
     const size_t n_head   = config.n_head;
     const size_t head_dim = n_embd / n_head;
-    
+
     // Initiating Tensors
     std::vector<Tensor> heads(n_head);
     for (size_t i = 0; i < n_head; ++i){
@@ -154,13 +154,13 @@ static Tensor attention_head(const Tensor& Q, const Tensor& K, const Tensor& V, 
     const size_t seq      = Q.shape[0];
     const size_t head_dim = Q.shape[1];
 
-    Tensor Kt;
+    Tensor Kt {};
     {
         ScopeTimer timer { profile, Component::TRANSPOSE, layer_idx, copy_cost(seq * head_dim) };
         Kt = transpose(K);
     }
 
-    Tensor S;
+    Tensor S {};
     {
         ScopeTimer timer { profile, Component::SCORES, layer_idx, matmul_cost(seq, head_dim, seq) };
         S = matmul(Q, Kt);
@@ -226,13 +226,12 @@ static Tensor output_projection(const Tensor& concat, const Attention& attn)
     const size_t n_embd = concat.shape[1];
 
     // Perform (concat . w) + b
-    Tensor out { matmul(concat, attn.c_proj.w) };
+    Tensor out { matmul(concat, attn.c_proj.weight) };
     for (size_t t = 0; t < seq; ++t){
         for (size_t c = 0; c < n_embd; ++c){
-            out(t, c) += attn.c_proj.b.data[c];
+            out(t, c) += attn.c_proj.bias.data[c];
         }
     }
 
     return out;
 }
-

@@ -18,7 +18,7 @@ Tensor forward(const std::vector<int>& ids, const Model& model, const InterpCont
     validate_ablation(interpctx.ablation, config, seq);
 
     // Anything outside a block is attributed to layer n_layer.
-    Tensor x;
+    Tensor x {};
     {
         ScopeTimer timer { profile, Component::EMBED, config.n_layer, copy_cost(seq * config.n_embd) };
         x = embed(ids, model);
@@ -30,8 +30,8 @@ Tensor forward(const std::vector<int>& ids, const Model& model, const InterpCont
     }
 
     // Both sublayers handle their own pre-norm and residual add
-    for (size_t layer_idx = 0; layer_idx < network.h.size(); ++layer_idx){
-        const Block& block = network.h[layer_idx];
+    for (size_t layer_idx = 0; layer_idx < network.blocks.size(); ++layer_idx){
+        const Block& block = network.blocks[layer_idx];
 
         x = attention(x, block.ln_1, block.attn, config, interpctx, layer_idx, profile);
         if (interpctx.cache) {
