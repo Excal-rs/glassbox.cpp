@@ -172,3 +172,13 @@ static Network load_network(const std::string& path, const Config& config){
 
     return net;
 }
+
+
+// --------- TensorView ---------
+
+// All values are in the OWNERS coordinate space
+TensorView::TensorView(Tensor& owner, size_t start_row, size_t start_col, size_t n_rows, size_t n_cols)
+    : base       { owner.data.data() + start_row * owner.shape[1] + start_col },
+      row_stride { owner.shape[1] },
+      shape      { n_rows, n_cols }
+{}

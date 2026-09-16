@@ -23,6 +23,19 @@ struct Tensor {
     float  operator()(size_t r, size_t c) const       { return data[r * shape[1] + c]; }
 };
 
+// A partial view of another tensor
+struct TensorView {
+    float*               base;
+    size_t                row_stride;
+    std::vector<size_t>   shape;
+
+    // All values are in the OWNERS coordinate space
+    TensorView(Tensor& owner, size_t start_row, size_t start_col, size_t n_rows, size_t n_cols);
+
+    float& operator()(size_t r, size_t c)             { return base[r * row_stride + c]; }
+    float  operator()(size_t r, size_t c) const       { return base[r * row_stride + c]; }
+};
+
 struct Linear {
     Tensor weight; // weight.shape = {in, out}
     Tensor bias;   // bias.shape = {out}
