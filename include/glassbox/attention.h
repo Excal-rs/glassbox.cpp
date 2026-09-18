@@ -1,5 +1,6 @@
 #pragma once
 
+// Include `glassbox` libraries
 #include "glassbox/model.h"
 #include "glassbox/interp.h"
 
