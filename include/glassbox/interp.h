@@ -1,10 +1,13 @@
 #pragma once
 
+// Include `glassbox` libraries
+#include "glassbox/model.h"
+
+// Include stdlib
 #include <vector>
 #include <cstddef>
 #include <limits>
 #include <ostream>
-#include "model.h"
 
 // --------- Interp Cache Types ---------
 struct LayerCache {

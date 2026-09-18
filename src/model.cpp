@@ -129,7 +129,7 @@ static Tensor load_tensor(SafeTensors& st, const std::string& name){
     Tensor t {};
     t.shape = meta.at("shape").get<std::vector<size_t>>();
 
-    json::value_type offsets ( meta.at("data_offsets") );
+    json::value_type offsets(meta.at("data_offsets"));
     size_t begin { offsets.at(0) };
     size_t end   { offsets.at(1) };
 

@@ -1,9 +1,12 @@
+// Include `glassbox` libraries
+#include "glassbox/interp.h"
+#include "glassbox/utils.h"
+
+// Include stdlib
 #include <algorithm>
 #include <cstdint>
 #include <ostream>
 #include <string>
-#include "glassbox/interp.h"
-#include "glassbox/utils.h"
 
 // --------- Static Forward Declarations ---------
 
@@ -21,7 +24,7 @@ ModelCache init_cache(const Config& config, const size_t seq_len){
         .layers = std::vector<LayerCache>(n_layer)
     };
 
-    for (size_t i = 0; i < n_layer; ++i){
+    for (size_t i {0}; i < n_layer; ++i){
         cache.layers[i].attention_output      = std::vector<float>(stream_size);
         cache.layers[i].stream_post_attention = std::vector<float>(stream_size);
         cache.layers[i].mlp_output            = std::vector<float>(stream_size);
@@ -30,7 +33,6 @@ ModelCache init_cache(const Config& config, const size_t seq_len){
 
     return cache;
 }
-
 
 void dump_cache(std::ostream& file, const ModelCache& cache, const Config& config, const std::vector<int>& ids, const size_t n_prompt_tokens, const AblationConfig& ablation)
 {
@@ -44,7 +46,7 @@ void dump_cache(std::ostream& file, const ModelCache& cache, const Config& confi
 
     // Header: 32 bytes, then one u32 per token. The ablation fields say how the
     // pass was perturbed - without them an ablated dump reads as a clean one.
-    // patch_values are not recorded: whoever supplied them already has them.
+    // patch_values are not recorded (yet)
     file.write("GBIC", 4);
     write_u32(file, 2);
     write_u32(file, config.n_layer);
@@ -71,26 +73,29 @@ void dump_cache(std::ostream& file, const ModelCache& cache, const Config& confi
     if (!file) die("dump_cache: write failed");
 }
 
-
 // The layer check also handles AblationType::NONE, whose NO_LAYER target
 // matches no real index - so an interp-free run pays one integer compare.
 void ablate_attention(std::vector<float>& sublayer_out, const AblationConfig& ablation, const size_t layer_idx)
 {
     if (layer_idx != ablation.target_layer) return;
 
-    if      (ablation.type == AblationType::ZERO_ATTENTION)  std::fill(sublayer_out.begin(), sublayer_out.end(), 0.0f);
-    else if (ablation.type == AblationType::PATCH_ATTENTION) sublayer_out = ablation.patch_values;
+    if (ablation.type == AblationType::ZERO_ATTENTION) {
+        std::fill(sublayer_out.begin(), sublayer_out.end(), 0.0f);
+    } else if (ablation.type == AblationType::PATCH_ATTENTION) {
+        sublayer_out = ablation.patch_values;
+    }
 }
-
 
 void ablate_mlp(std::vector<float>& sublayer_out, const AblationConfig& ablation, const size_t layer_idx)
 {
     if (layer_idx != ablation.target_layer) return;
 
-    if      (ablation.type == AblationType::ZERO_MLP)  std::fill(sublayer_out.begin(), sublayer_out.end(), 0.0f);
-    else if (ablation.type == AblationType::PATCH_MLP) sublayer_out = ablation.patch_values;
+    if (ablation.type == AblationType::ZERO_MLP) {
+        std::fill(sublayer_out.begin(), sublayer_out.end(), 0.0f);
+    } else if (ablation.type == AblationType::PATCH_MLP) {
+        sublayer_out = ablation.patch_values;
+    }
 }
-
 
 void validate_ablation(const AblationConfig& ablation, const Config& config, const size_t seq_len)
 {
@@ -115,7 +120,7 @@ void validate_ablation(const AblationConfig& ablation, const Config& config, con
 // Writes one uint32_t value as 4 raw little-endian bytes
 static void write_u32(std::ostream& file, const size_t value)
 {
-    const uint32_t narrowed = static_cast<uint32_t>(value);
+    const uint32_t narrowed { static_cast<uint32_t>(value) };
     file.write(reinterpret_cast<const char*>(&narrowed), sizeof(narrowed));
 }
 
