@@ -1,23 +1,26 @@
-#include <cmath>
+// Include `glassbox` libraries
 #include "glassbox/layernorm.h"
 #include "glassbox/utils.h"
 #include "glassbox/mlp.h"
 #include "glassbox/benchmarking.h"
 
+// Include stdlib
+#include <cmath>
+
 // --------- Constants ---------
 static constexpr float GELU_SCALE = 0.7978845608f; // This is what GPT-2 was trained with as the approximation, therefore using this instead of exact value
 
-
 // --------- Static Forward Declarations ---------
 static inline float tanh_approx(float u);
+
 
 // --------- Public API ---------
 
 // Runs one block's MLP sublayer on x (shape {seq, n_embd})
 Tensor mlp(const Tensor& x, const LayerNorm& ln, const MLP& mlp, const Config& config, const InterpContext& interpctx, size_t layer_idx, Profile* profile)
 {
-    const size_t seq    = x.shape[0];
-    const size_t n_embd = config.n_embd;
+    const size_t seq    { x.shape[0] };
+    const size_t n_embd { config.n_embd };
 
     Tensor xn {};
     {
@@ -30,8 +33,8 @@ Tensor mlp(const Tensor& x, const LayerNorm& ln, const MLP& mlp, const Config& c
     {
         ScopeTimer timer { profile, Component::MLP_FC, layer_idx, matmul_cost(seq, n_embd, 4 * n_embd) };
         h = matmul(xn, mlp.c_fc.weight);
-        for (size_t i = 0; i < seq; ++i){
-            for (size_t j = 0; j < n_embd * 4; ++j) {
+        for (size_t i {0}; i < seq; ++i){
+            for (size_t j {0}; j < n_embd * 4; ++j) {
                 h(i, j) += mlp.c_fc.bias.data[j];
             }
         }
@@ -52,8 +55,8 @@ Tensor mlp(const Tensor& x, const LayerNorm& ln, const MLP& mlp, const Config& c
         out = matmul(h, mlp.c_proj.weight);
 
         // Pass 1: add the c_proj bias only
-        for (size_t i = 0; i < seq; ++i){
-            for (size_t j = 0; j < n_embd; ++j) {
+        for (size_t i {0}; i < seq; ++i){
+            for (size_t j {0}; j < n_embd; ++j) {
                 out(i, j) += mlp.c_proj.bias.data[j];
             }
         }
@@ -67,8 +70,8 @@ Tensor mlp(const Tensor& x, const LayerNorm& ln, const MLP& mlp, const Config& c
     // Pass 2: add the residual
     {
         ScopeTimer timer { profile, Component::RESIDUAL, layer_idx, elementwise_cost(seq * n_embd, 1) };
-        for (size_t i = 0; i < seq; ++i){
-            for (size_t j = 0; j < n_embd; ++j) {
+        for (size_t i {0}; i < seq; ++i){
+            for (size_t j {0}; j < n_embd; ++j) {
                 out(i, j) += x(i, j);
             }
         }
@@ -76,6 +79,7 @@ Tensor mlp(const Tensor& x, const LayerNorm& ln, const MLP& mlp, const Config& c
 
     return out;
 }
+
 
 // --------- Helper Function Definitions ---------
 
