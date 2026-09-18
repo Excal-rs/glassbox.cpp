@@ -13,8 +13,8 @@
 void die(const std::string& msg);
 
 // Matrix multiplication of 2D tensors: A {m, k} by B {k, n}. TA/TB may each be
-// Tensor or TensorView, read through operator() - the result always owns fresh
-// storage, so the return type stays Tensor regardless of the inputs.
+// Tensor or TensorView, read through operator()
+// return type stays Tensor regardless of the inputs.
 // Returns a new Tensor A @ B {m, n}
 template <typename TA, typename TB>
 Tensor matmul(const TA& a, const TB& b)
