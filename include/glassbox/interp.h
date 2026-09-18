@@ -21,10 +21,11 @@ struct ModelCache {
 
 // --------- Ablation Types ---------
 
-// Unsigned so it never trips -Wsign-compare against a layer index.
+// Unsigned so it never trips against a layer index.
 inline constexpr size_t NO_LAYER = std::numeric_limits<size_t>::max();
 
-// These values are written into GBIC dumps, so they are part of the file
+// These values are written
+// into GBIC dumps, so they are part of the file
 // format: append new ones, never renumber the existing ones.
 enum class AblationType {
     NONE            = 0,
@@ -50,6 +51,7 @@ struct InterpContext {
 };
 
 // --------- Public API ---------
+
 ModelCache init_cache(const Config& config, const size_t seq_len);
 void       dump_cache(std::ostream& file, const ModelCache& cache, const Config& config, const std::vector<int>& ids, const size_t n_prompt_tokens, const AblationConfig& ablation);
 
