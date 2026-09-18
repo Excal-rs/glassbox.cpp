@@ -1,7 +1,10 @@
+// Include `glassbox` libraries
+#include "glassbox/utils.h"
+
+// Include stdlib
 #include <cstdlib>
 #include <iostream>
 #include <string>
-#include "glassbox/utils.h"
 
 // --------- Public API ---------
 
