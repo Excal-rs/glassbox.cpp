@@ -76,7 +76,6 @@ int main(int argc, char* argv[]) {
     }
 
     // Generation
-    std::string response { prompt };
     std::cout << prompt << std::flush;
 
     for (int i = 0; i < opt.n_tokens && ids.size() < model.config.n_ctx; ++i) {
@@ -85,6 +84,8 @@ int main(int argc, char* argv[]) {
 
         profile.pass_index = static_cast<size_t>(i);
         profile.seq_len    = ids.size();
+
+        std::cerr << "\rGenerating Token " << (i + 1) << "/" << opt.n_tokens << "..." << std::flush;
 
         const auto pass_started = std::chrono::steady_clock::now();
         Tensor x { forward(ids, model, interpctx, profilep) };
@@ -101,20 +102,25 @@ int main(int argc, char* argv[]) {
 
         ids.push_back(static_cast<int>(best));
 
-        const auto decode_started = std::chrono::steady_clock::now();
-        const std::string piece = decode({static_cast<int>(best)}, model.vocab);
-        const size_t decode_ns { elapsed_ns(decode_started) };
-
         if (opt.benchmarking) {
-            record_stage(profile, Component::DECODE, decode_ns);
             record_stage(profile, Component::PASS, pass_ns);
             finish_pass(profile, static_cast<size_t>(i), profile.seq_len);
         }
-
-        response += piece;
-        std::cout << piece << std::flush;
     }
-    std::cout << "\n";
+    std::cerr << "\n";
+
+    // Decode every generated token in one call, rather than once per token -
+    // decode() rebuilds its lookup tables on each call, so batching this avoids
+    // paying that cost n_tokens times over
+    const auto decode_started { std::chrono::steady_clock::now() };
+    const std::vector<int> generated_ids(ids.begin() + static_cast<std::ptrdiff_t>(n_prompt_tokens), ids.end());
+    const std::string generated { decode(generated_ids, model.vocab) };
+    const size_t decode_ns { elapsed_ns(decode_started) };
+
+    if (opt.benchmarking) record_stage(profile, Component::DECODE, decode_ns);
+
+    const std::string response { prompt + generated };
+    std::cout << generated << "\n";
 
     if (opt.benchmarking) {
         write_profile(opt.benchmarking_out, profile, opt.benchmarking_tag);
