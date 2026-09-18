@@ -1,11 +1,11 @@
 // CLI application headers
 #include "input.h"
 
-// Include `glassbox` Libraries
+// Include `glassbox` libraries
 #include "glassbox/benchmarking.h"
 #include "glassbox/utils.h"
 
-// stdlib includes
+// Include stdlib
 #include <charconv>
 #include <cstdlib>
 #include <fstream>
@@ -26,7 +26,7 @@ static AblationConfig parse_ablation(std::string_view spec);
 
 // --------- CLI Flag Table ---------
 
-static constexpr size_t HELP_COLUMN {28};
+static constexpr size_t HELP_COLUMN = 28;
 
 struct Flag {
     std::string_view short_name, long_name, arg, help;
@@ -94,7 +94,7 @@ void print_usage(std::ostream& os) {
 }
 
 Options parse_arguments(int argc, char* argv[]) {
-    Options options;
+    Options options {};
     std::vector<std::string_view> positionals;
 
     for (int i {1}; i < argc; ++i) {
@@ -140,7 +140,6 @@ Options parse_arguments(int argc, char* argv[]) {
 
     return options;
 }
-
 
 // Resolve the prompt from the selected source: inline, file, or stdin (default).
 std::string resolve_prompt(const Options& opt) {
@@ -200,7 +199,7 @@ static AblationConfig parse_ablation(std::string_view spec) {
     const std::string_view kind  { spec.substr(0, colon) };
     const std::string_view layer { spec.substr(colon + 1) };
 
-    AblationConfig ablation;
+    AblationConfig ablation {};
     if      (kind == "zero-attn") ablation.type = AblationType::ZERO_ATTENTION;
     else if (kind == "zero-mlp")  ablation.type = AblationType::ZERO_MLP;
     else                          die("--ablate kind must be zero-attn or zero-mlp, got: " + std::string(kind));

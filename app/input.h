@@ -1,9 +1,12 @@
 #pragma once
 
+// Include `glassbox` libraries
+#include "glassbox/interp.h"
+
+// Include stdlib
 #include <optional>
 #include <ostream>
 #include <string>
-#include "glassbox/interp.h"
 
 // --------- CLI Flags ---------
 struct Options {
