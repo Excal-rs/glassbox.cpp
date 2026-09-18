@@ -9,7 +9,7 @@
 #include "glassbox/benchmarking.h"
 #include "glassbox/utils.h"
 
-// stdlib includes
+// Include stdlib
 #include <algorithm>
 #include <chrono>
 #include <cstddef>
@@ -20,7 +20,7 @@
 #include <vector>
 
 int main(int argc, char* argv[]) {
-    const Options opt = parse_arguments(argc, argv);
+    const Options opt { parse_arguments(argc, argv) };
 
 #ifndef NDEBUG
     if (opt.benchmarking)
@@ -78,7 +78,7 @@ int main(int argc, char* argv[]) {
     // Generation
     std::cout << prompt << std::flush;
 
-    for (int i = 0; i < opt.n_tokens && ids.size() < model.config.n_ctx; ++i) {
+    for (int i {0}; i < opt.n_tokens && ids.size() < model.config.n_ctx; ++i) {
         // Each pass overwrites the cache, so what survives the loop is the last one.
         cached_ids = ids;
 
@@ -87,14 +87,14 @@ int main(int argc, char* argv[]) {
 
         std::cerr << "\rGenerating Token " << (i + 1) << "/" << opt.n_tokens << "..." << std::flush;
 
-        const auto pass_started = std::chrono::steady_clock::now();
+        const auto pass_started { std::chrono::steady_clock::now() };
         Tensor x { forward(ids, model, interpctx, profilep) };
         std::vector<float> logits { lm_logits(x, model, profilep) };
         const size_t pass_ns { elapsed_ns(pass_started) };
 
         // Greedy decoding, currently being used for testing, TODO: Add other modes and flags for this
-        size_t best = 0;
-        for (size_t t = 1; t < logits.size(); ++t) {
+        size_t best {0};
+        for (size_t t {1}; t < logits.size(); ++t) {
             if (logits[t] > logits[best]) best = t;
         }
 
