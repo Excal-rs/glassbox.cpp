@@ -1,10 +1,13 @@
 #pragma once
 
+// Include `glassbox` libraries
+#include "glassbox/model.h"
+
+// Include stdlib
 #include <chrono>
 #include <cstddef>
 #include <string>
 #include <vector>
-#include "glassbox/model.h"
 
 // --------- Component Types ---------
 

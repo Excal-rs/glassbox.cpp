@@ -1,9 +1,12 @@
+// Include `glassbox` libraries
+#include "glassbox/benchmarking.h"
+#include "glassbox/utils.h"
+
+// Include stdlib
 #include <chrono>
 #include <ctime>
 #include <fstream>
 #include <string>
-#include "glassbox/benchmarking.h"
-#include "glassbox/utils.h"
 
 // Set by CMake from `git rev-parse --short HEAD` at configure time, so it goes
 // stale if you rebuild without re-running cmake. tools/bench.py reports git's
@@ -32,11 +35,10 @@ static std::string timestamp();
 // --------- Public API ---------
 
 ScopeTimer::ScopeTimer(Profile* profile, Component component, size_t layer, Cost cost)
-    : profile(profile), component(component), layer(layer), cost(cost)
+    : profile{profile}, component{component}, layer{layer}, cost{cost}
 {
     if (profile) start = std::chrono::steady_clock::now();
 }
-
 
 ScopeTimer::~ScopeTimer()
 {
@@ -51,7 +53,6 @@ ScopeTimer::~ScopeTimer()
     slot.cost.alloc += cost.alloc;
 }
 
-
 // One slot per (layer, component), plus a final row of slots for the stages
 // that sit outside any block: the embedding, ln_f, the logits, the run itself.
 Profile init_profile(const Config& config)
@@ -62,14 +63,13 @@ Profile init_profile(const Config& config)
     return profile;
 }
 
-
 // Moves the pass in flight into rows and clears the slots for the next one.
 // Passes are never folded together here: without a KV cache each one runs over
 // a longer prefix, so they are different measurements rather than repeats.
 void finish_pass(Profile& profile, size_t pass_index, size_t seq_len)
 {
-    for (size_t layer = 0; layer <= profile.n_layer; ++layer){
-        for (size_t c = 0; c < COMPONENT_COUNT; ++c){
+    for (size_t layer {0}; layer <= profile.n_layer; ++layer){
+        for (size_t c {0}; c < COMPONENT_COUNT; ++c){
             const Sample& slot = profile.slots[layer * COMPONENT_COUNT + c];
             if (slot.calls == 0) continue;
 
@@ -86,7 +86,6 @@ void finish_pass(Profile& profile, size_t pass_index, size_t seq_len)
     profile.slots.assign(profile.slots.size(), Sample{});
 }
 
-
 // For work outside a forward pass: loading the model, encoding, decoding.
 void record_stage(Profile& profile, Component component, size_t ns)
 {
@@ -99,7 +98,6 @@ void record_stage(Profile& profile, Component component, size_t ns)
     });
 }
 
-
 // Appends every row, writing the header only into an empty file, so a sweep can
 // point run after run at the same path.
 void write_profile(const std::string& path, const Profile& profile, const std::string& tag)
@@ -110,7 +108,7 @@ void write_profile(const std::string& path, const Profile& profile, const std::s
     if (!file) die("cannot open benchmark file: " + path);
     if (fresh) file << CSV_HEADER;
 
-    const std::string date = timestamp();
+    const std::string date { timestamp() };
 
     for (const Row& row : profile.rows){
         file << GLASSBOX_COMMIT           << ',' << BUILD             << ','
@@ -126,7 +124,6 @@ void write_profile(const std::string& path, const Profile& profile, const std::s
     file.close();
     if (!file) die("benchmark write failed: " + path);
 }
-
 
 size_t elapsed_ns(std::chrono::steady_clock::time_point start)
 {
@@ -148,13 +145,11 @@ Cost matmul_cost(size_t m, size_t k, size_t n)
     };
 }
 
-
 // A reshape or transpose: no arithmetic, one read and one write per element.
 Cost copy_cost(size_t elements)
 {
     return Cost{ .flops = 0, .bytes = 8 * elements, .alloc = 4 * elements };
 }
-
 
 // Work done in place over `elements`, at a nominal cost per element. The flop
 // count is a fiction for anything containing exp() - which is why softmax and
@@ -195,10 +190,9 @@ static const char* component_name(Component component)
     return "unknown";
 }
 
-
 static std::string timestamp()
 {
-    const std::time_t now = std::time(nullptr);
+    const std::time_t now { std::time(nullptr) };
     char buffer[32];
     std::strftime(buffer, sizeof(buffer), "%Y-%m-%dT%H:%M:%S", std::localtime(&now));
     return buffer;
