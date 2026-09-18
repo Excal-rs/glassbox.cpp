@@ -8,7 +8,7 @@ add_library(glassbox
     mlp.cpp
     forward.cpp
     interp.cpp
-    bench.cpp
+    benchmarking.cpp
 )
 
 # Exposes include/ to anything linking glassbox, so includes look like

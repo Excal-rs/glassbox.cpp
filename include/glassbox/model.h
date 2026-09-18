@@ -1,9 +1,9 @@
 #pragma once
 
+// Include stdlib
 #include <vector>
 #include <unordered_map>
 #include <string>
-#include <cstdint>
 #include <cstddef>
 
 // All comments regarding shape are specifc to GPT2
@@ -23,44 +23,54 @@ struct Tensor {
     float  operator()(size_t r, size_t c) const       { return data[r * shape[1] + c]; }
 };
 
+// A partial view of another tensor
+struct TensorView {
+    float*               base;
+    size_t                row_stride;
+    std::vector<size_t>   shape;
+
+    // All values are in the OWNERS coordinate space
+    TensorView(Tensor& owner, size_t start_row, size_t start_col, size_t n_rows, size_t n_cols);
+
+    float& operator()(size_t r, size_t c)             { return base[r * row_stride + c]; }
+    float  operator()(size_t r, size_t c) const       { return base[r * row_stride + c]; }
+};
+
 struct Linear {
-    Tensor w; // w.shape = {in, out}
-    Tensor b; // b.shape = {out}
+    Tensor weight; // weight.shape = {in, out}
+    Tensor bias;   // bias.shape = {out}
 };
 
 struct LayerNorm {
-    Tensor weight;
-    Tensor bias;
-
-    // weight.shape = {768}
-    // bias.shape   = {768}
+    Tensor weight; // weight.shape = {768}
+    Tensor bias;   // bias.shape  = {768}
 };
 
 struct Attention {
     Linear c_attn;
-    // attn.b shape = {2304}
-    // attn.w shape = {768, 2304}
+    // attn.bias shape = {2304}
+    // attn.weight shape = {768, 2304}
 
     Linear c_proj;
-    // proj.b shape = {768}
-    // proj.w shape = {768, 768}
+    // proj.bias shape = {768}
+    // proj.weight shape = {768, 768}
 };
 
 struct MLP {
     Linear c_fc;
-    // fc.b shape = {3072}
-    // fc.w shape = {768, 3072}
+    // fc.bias shape = {3072}
+    // fc.weight shape = {768, 3072}
 
     Linear c_proj;
-    // proj.b shape = {768}
-    // proj.w shape = {3072, 768}
+    // proj.bias shape = {768}
+    // proj.weight shape = {3072, 768}
 };
 
 struct Block {
     LayerNorm ln_1, ln_2;
     Attention attn;
     MLP       mlp;
-    // h.size() == n_layer == 12
+    // h.size() == n_layer (from config) == 12
 };
 
 struct Network {
@@ -73,7 +83,7 @@ struct Network {
     // Shape  = {50257, 768}
 
     LayerNorm ln_f;
-    std::vector<Block> h;
+    std::vector<Block> blocks;
 };
 
 
@@ -100,4 +110,3 @@ struct Model {
 
 // --------- Public API ---------
 Model load_model(const std::string& model_dir);
-

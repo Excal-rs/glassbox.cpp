@@ -1,24 +1,25 @@
-#include <array>
-#include <string>
-#include <vector>
-#include <unordered_map>
-#include <utility>
-#include <cassert>
-#include <climits>
-#include <fstream>
-#include <iostream>
-#include <limits>
-#define PCRE2_CODE_UNIT_WIDTH 8
-#include <pcre2.h>
+// Include `glassbox` libraries
 #include "glassbox/token.h"
 
+// Include stdlib
+#include <array>
+#include <cassert>
+#include <limits>
+#include <string>
+#include <unordered_map>
+#include <utility>
+#include <vector>
+
+// Include external libraries
+#define PCRE2_CODE_UNIT_WIDTH 8
+#include <pcre2.h>
 
 // --------- Constants ---------
 
 // Byte values that bytes_to_unicode leaves unchanged (each maps to itself):
 // visible ASCII (! to ~), then the two printable runs of Latin-1, skipping the
 // C1 control block (127-160) and the soft hyphen (173).
-static constexpr std::array<std::pair<int, int>, 3> printableRanges {{
+static constexpr std::array<std::pair<int, int>, 3> printable_ranges {{
     {'!', '~'},
     {0xa1, 0xac},
     {0xae, 0xff},
@@ -26,18 +27,18 @@ static constexpr std::array<std::pair<int, int>, 3> printableRanges {{
 
 static constexpr std::string_view GPT2_REGEX {R"('s|'t|'re|'ve|'m|'ll|'d| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+)"};
 
-// --------- Forward declarations ---------
+// --------- Static Forward Declarations ---------
 
 static std::vector<std::string> chop(std::string input);
 static std::array<std::string, 256> bytes_to_unicode();
-static std::vector<std::string> merge_chunk(std::vector<std::string> chunk, const Merge &merge);
-static bool isPrintable(int c);
+static std::vector<std::string> merge_chunk(std::vector<std::string> chunk, const Merge& merge);
+static bool is_printable(int c);
 static std::string mini_utf8(unsigned int code);
 
 // --------- Public API ---------
 
 // Contract is documented in token.h.
-std::vector<int> encode(const std::string& text, const Vocab& vocab,const Merge& merge)
+std::vector<int> encode(const std::string& text, const Vocab& vocab, const Merge& merge)
 {
     auto mapping = bytes_to_unicode();
     std::vector<int> ids {};
@@ -69,7 +70,7 @@ std::string decode(const std::vector<int>& ids, const Vocab& vocab)
     // Inverse byte map: printable stand-in -> raw byte
     auto mapping = bytes_to_unicode();
     std::unordered_map<std::string, char> unmapping {};
-    for (int b = 0; b < 256; ++b){
+    for (int b {0}; b < 256; ++b){
         unmapping[mapping[b]] = static_cast<char>(b);
     }
 
@@ -78,7 +79,7 @@ std::string decode(const std::vector<int>& ids, const Vocab& vocab)
         const std::string& token = inverse[id];
 
         // Each stand-in is 1 or 2 UTF-8 bytes wide, given by its lead byte
-        for (size_t i = 0; i < token.size(); ){
+        for (size_t i {0}; i < token.size(); ){
             const size_t width = (static_cast<unsigned char>(token[i]) < 0x80) ? 1 : 2;
             out += unmapping.at(token.substr(i, width));
             i += width;
@@ -88,6 +89,7 @@ std::string decode(const std::vector<int>& ids, const Vocab& vocab)
     return out;
 }
 
+// --------- Helper Function Definitions ---------
 
 // Splits text into GPT-2's pre-tokenization chunks via the BPE regex.
 // Takes the input string; returns the chunks in order, covering the whole
@@ -97,20 +99,20 @@ static std::vector<std::string> chop(std::string input)
     std::vector<std::string> chunks {};
 
     // Compile Regex Pattern
-    int errcode;
-    PCRE2_SIZE erroffset;
-    pcre2_code *rcode {pcre2_compile(
-        (PCRE2_SPTR) GPT2_REGEX.data(),
+    int errcode {};
+    PCRE2_SIZE erroffset {};
+    pcre2_code* rcode {pcre2_compile(
+        reinterpret_cast<PCRE2_SPTR>(GPT2_REGEX.data()),
         GPT2_REGEX.size(),
         PCRE2_UTF | PCRE2_UCP,
         &errcode,
-        &erroffset, NULL
+        &erroffset, nullptr
     )};
-    assert(rcode != NULL && "No error when compiling regex");
+    assert(rcode != nullptr && "No error when compiling regex");
 
     // Allocate match data
-    pcre2_match_data *match {pcre2_match_data_create_from_pattern(
-        rcode, NULL
+    pcre2_match_data* match {pcre2_match_data_create_from_pattern(
+        rcode, nullptr
     )};
 
     // Perform Matches
@@ -119,50 +121,49 @@ static std::vector<std::string> chop(std::string input)
     {
         pcre2_match(
             rcode,
-            (PCRE2_SPTR) input.data(),
+            reinterpret_cast<PCRE2_SPTR>(input.data()),
             input.size(),
             offset,
             0,
             match,
-            NULL
+            nullptr
         );
 
         // Get start and end positions for appending and offset update
-        PCRE2_SIZE *overctor {pcre2_get_ovector_pointer(match)};
-        chunks.push_back(input.substr(overctor[0], overctor[1] - overctor[0]));
-        offset = overctor[1];
+        PCRE2_SIZE* ovector {pcre2_get_ovector_pointer(match)};
+        chunks.push_back(input.substr(ovector[0], ovector[1] - ovector[0]));
+        offset = ovector[1];
     }
 
     // Free heap memory
     pcre2_match_data_free(match);
     pcre2_code_free(rcode);
 
-
     return chunks;
 }
 
 // Builds GPT-2's byte→unicode table, mapping all 256 byte values to printable
 // stand-in characters so the BPE chunk never hold raw control or whitespace bytes.
-static std::array<std::string, 256> bytes_to_unicode() 
+static std::array<std::string, 256> bytes_to_unicode()
 {
-    std::array<std::string, 256> byteMapping{};
-    int n = 0;
-    for (int i = 0; i < 256; ++i) {
-        if (isPrintable(i)) {
-            byteMapping[i] = mini_utf8(i);
+    std::array<std::string, 256> byte_mapping {};
+    int n {0};
+    for (int i {0}; i < 256; ++i) {
+        if (is_printable(i)) {
+            byte_mapping[i] = mini_utf8(i);
         } else {
-            byteMapping[i] = mini_utf8(256 + n);  // not printable: next free code point above 255
+            byte_mapping[i] = mini_utf8(256 + n);  // not printable: next free code point above 255
             ++n;
         }
     }
-    return byteMapping;
+    return byte_mapping;
 }
 
 // True if byte value c is a printable character that maps to itself in
 // bytes_to_unicode (visible ASCII, or the printable parts of Latin-1).
-static bool isPrintable(int c) 
+static bool is_printable(int c)
 {
-    for (auto [lo, hi] : printableRanges) {
+    for (auto [lo, hi] : printable_ranges) {
         if (lo <= c && c <= hi)
             return true;
     }
@@ -172,7 +173,7 @@ static bool isPrintable(int c)
 // Encodes a Unicode code point as UTF-8, but only across the 1- and 2-byte range
 // (code points up to U+07FF), all that bytes_to_unicode ever needs, hence the
 // assert. Swap in the full 4-byte encoder if we ever need to go higher.
-static std::string mini_utf8(unsigned int code) 
+static std::string mini_utf8(unsigned int code)
 {
     assert(code <= 0x7ff && "mini_utf8() only works for 1-2 byte ranges");
     std::string out;
@@ -185,17 +186,16 @@ static std::string mini_utf8(unsigned int code)
     return out;
 }
 
-
 // Follows the given merge rules and merges a chunk into its final tokens.
 // The chunk starts as one mapped byte per element and combines as merges are
 // applied; returns the merged token strings.
-static std::vector<std::string> merge_chunk(std::vector<std::string> chunk, const Merge &merge)
+static std::vector<std::string> merge_chunk(std::vector<std::string> chunk, const Merge& merge)
 {
     // Repeatedly merge the lowest-rank adjacent pair, until nothing is mergeable
     while (chunk.size() > 1) {
-        std::pair<int, int> best = {-1, std::numeric_limits<int>::max()};   // {index, rank}
+        std::pair<int, int> best {-1, std::numeric_limits<int>::max()};   // {index, rank}
 
-        for (size_t i = 0; i + 1 < chunk.size(); ++i) {
+        for (size_t i {0}; i + 1 < chunk.size(); ++i) {
             auto it = merge.find(chunk[i] + " " + chunk[i + 1]);
             if (it != merge.end() && it->second < best.second) {
                 best = {i, it->second};
@@ -204,7 +204,7 @@ static std::vector<std::string> merge_chunk(std::vector<std::string> chunk, cons
 
         if (best.first == -1) break;
 
-        int i = best.first;
+        const int i { best.first };
         chunk[i] += chunk[i + 1];
         chunk.erase(chunk.begin() + i + 1);
     }
