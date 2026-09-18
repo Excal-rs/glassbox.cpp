@@ -1,8 +1,11 @@
 #pragma once
 
-#include <vector>
+// Include `glassbox` libraries
 #include "glassbox/model.h"
 #include "glassbox/interp.h"
+
+// Include stdlib
+#include <vector>
 
 struct Profile;   // glassbox/benchmarking.h
 

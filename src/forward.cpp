@@ -1,10 +1,13 @@
-#include <vector>
+// Include `glassbox` libraries
 #include "glassbox/embed.h"
 #include "glassbox/layernorm.h"
 #include "glassbox/attention.h"
 #include "glassbox/mlp.h"
 #include "glassbox/forward.h"
 #include "glassbox/benchmarking.h"
+
+// Include stdlib
+#include <vector>
 
 // --------- Public API ---------
 
@@ -13,7 +16,7 @@ Tensor forward(const std::vector<int>& ids, const Model& model, const InterpCont
 {
     const Config&  config  = model.config;
     const Network& network = model.network;
-    const size_t   seq     = ids.size();
+    const size_t   seq     { ids.size() };
 
     validate_ablation(interpctx.ablation, config, seq);
 
@@ -30,7 +33,7 @@ Tensor forward(const std::vector<int>& ids, const Model& model, const InterpCont
     }
 
     // Both sublayers handle their own pre-norm and residual add
-    for (size_t layer_idx = 0; layer_idx < network.blocks.size(); ++layer_idx){
+    for (size_t layer_idx {0}; layer_idx < network.blocks.size(); ++layer_idx){
         const Block& block = network.blocks[layer_idx];
 
         x = attention(x, block.ln_1, block.attn, config, interpctx, layer_idx, profile);
@@ -53,16 +56,16 @@ Tensor forward(const std::vector<int>& ids, const Model& model, const InterpCont
 std::vector<float> lm_logits(const Tensor& x, const Model& model, Profile* profile)
 {
     const Tensor& wte     = model.network.wte;
-    const size_t  last    = x.shape[0] - 1;
-    const size_t  n_embd  = x.shape[1];
-    const size_t  n_vocab = model.config.n_vocab;
+    const size_t  last    { x.shape[0] - 1 };
+    const size_t  n_embd  { x.shape[1] };
+    const size_t  n_vocab { model.config.n_vocab };
 
     ScopeTimer timer { profile, Component::LOGITS, model.config.n_layer, matmul_cost(1, n_embd, n_vocab) };
 
     std::vector<float> logits(n_vocab);
-    for (size_t t = 0; t < n_vocab; ++t){
-        float sum = 0.0f;
-        for (size_t j = 0; j < n_embd; ++j){
+    for (size_t t {0}; t < n_vocab; ++t){
+        float sum {0.0f};
+        for (size_t j {0}; j < n_embd; ++j){
             sum += x(last, j) * wte(t, j);
         }
         logits[t] = sum;
