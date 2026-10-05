@@ -143,23 +143,6 @@ neurons, and patching activations in from a second run rather than only zeroing
 them. Attention pattern capture, the post-softmax matrix behind the familiar
 attention-map plots, belongs here too.
 
-### Intervention language
-A small declarative command-file format, the unit of reproducible, shareable
-experiments. Each line is one intervention:
-
-```gbx
-# ablate.gbx
-ablate  blocks.9.mlp.post   2073        # zero a neuron
-scale   blocks.5.attn.head  7   0.0     # silence a head
-patch   blocks.2.resid_post run_b       # paste activations from another run
-```
-
-Deliberately not a programming language (no loops or variables), just a flat
-list covering the standard mech-interp moves. A curated library of known
-circuits (induction heads, IOI, and so on) from published research may ship
-later as named presets, since circuits are discovered rather than read off the
-weights.
-
 ### CUDA support
 The forward pass is CPU-first for clarity and correctness. A CUDA backend will
 follow for throughput once the reference path is trusted. The named-tensor and
