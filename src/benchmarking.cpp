@@ -1,6 +1,6 @@
 // Include `glassbox` libraries
-#include "glassbox/benchmarking.h"
-#include "glassbox/utils.h"
+#include "glassbox/benchmarking.hpp"
+#include "glassbox/utils.hpp"
 
 // Include stdlib
 #include <chrono>

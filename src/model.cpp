@@ -1,6 +1,6 @@
 // Include `glassbox` libraries
-#include "glassbox/model.h"
-#include "glassbox/utils.h"
+#include "glassbox/model.hpp"
+#include "glassbox/utils.hpp"
 
 // Include stdlib
 #include <cstdint>

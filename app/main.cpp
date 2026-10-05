@@ -1,13 +1,13 @@
 // CLI application headers
-#include "input.h"
+#include "input.hpp"
 
 // Include `glassbox` libraries
-#include "glassbox/model.h"
-#include "glassbox/token.h"
-#include "glassbox/forward.h"
-#include "glassbox/interp.h"
-#include "glassbox/benchmarking.h"
-#include "glassbox/utils.h"
+#include "glassbox/model.hpp"
+#include "glassbox/token.hpp"
+#include "glassbox/forward.hpp"
+#include "glassbox/interp.hpp"
+#include "glassbox/benchmarking.hpp"
+#include "glassbox/utils.hpp"
 
 // Include stdlib
 #include <algorithm>

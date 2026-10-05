@@ -1,5 +1,5 @@
 // Include `glassbox` libraries
-#include "glassbox/token.h"
+#include "glassbox/token.hpp"
 
 // Include stdlib
 #include <array>
@@ -37,7 +37,7 @@ static std::string mini_utf8(unsigned int code);
 
 // --------- Public API ---------
 
-// Contract is documented in token.h.
+// Contract is documented in token.hpp.
 std::vector<int> encode(const std::string& text, const Vocab& vocab, const Merge& merge)
 {
     auto mapping = bytes_to_unicode();
@@ -58,7 +58,7 @@ std::vector<int> encode(const std::string& text, const Vocab& vocab, const Merge
     return ids;
 }
 
-// Contract is documented in token.h.
+// Contract is documented in token.hpp.
 std::string decode(const std::vector<int>& ids, const Vocab& vocab)
 {
     // Inverse vocab: id -> token string

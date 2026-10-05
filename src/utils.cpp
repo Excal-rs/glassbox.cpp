@@ -1,5 +1,5 @@
 // Include `glassbox` libraries
-#include "glassbox/utils.h"
+#include "glassbox/utils.hpp"
 
 // Include stdlib
 #include <cstdlib>

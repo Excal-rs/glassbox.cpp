@@ -1,10 +1,10 @@
 #pragma once
 
 // Include `glassbox` libraries
-#include "glassbox/model.h"
-#include "glassbox/interp.h"
+#include "glassbox/model.hpp"
+#include "glassbox/interp.hpp"
 
-struct Profile;   // glassbox/benchmarking.h
+struct Profile;   // glassbox/benchmarking.hpp
 
 // --------- Public API ---------
 

@@ -1,9 +1,9 @@
 // CLI application headers
-#include "input.h"
+#include "input.hpp"
 
 // Include `glassbox` libraries
-#include "glassbox/benchmarking.h"
-#include "glassbox/utils.h"
+#include "glassbox/benchmarking.hpp"
+#include "glassbox/utils.hpp"
 
 // Include stdlib
 #include <charconv>

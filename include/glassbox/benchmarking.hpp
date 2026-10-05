@@ -1,7 +1,7 @@
 #pragma once
 
 // Include `glassbox` libraries
-#include "glassbox/model.h"
+#include "glassbox/model.hpp"
 
 // Include stdlib
 #include <chrono>

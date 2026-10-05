@@ -1,7 +1,7 @@
 #pragma once
 
 // Include `glassbox` libraries
-#include "glassbox/model.h"  // Vocab, Merge
+#include "glassbox/model.hpp"  // Vocab, Merge
 
 // Include stdlib
 #include <string>

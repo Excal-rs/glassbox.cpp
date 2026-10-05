@@ -1,17 +1,17 @@
 // Include `glassbox` libraries
-#include "glassbox/embed.h"
-#include "glassbox/layernorm.h"
-#include "glassbox/attention.h"
-#include "glassbox/mlp.h"
-#include "glassbox/forward.h"
-#include "glassbox/benchmarking.h"
+#include "glassbox/embed.hpp"
+#include "glassbox/layernorm.hpp"
+#include "glassbox/attention.hpp"
+#include "glassbox/mlp.hpp"
+#include "glassbox/forward.hpp"
+#include "glassbox/benchmarking.hpp"
 
 // Include stdlib
 #include <vector>
 
 // --------- Public API ---------
 
-// Contract is documented in forward.h.
+// Contract is documented in forward.hpp.
 Tensor forward(const std::vector<int>& ids, const Model& model, const InterpContext& interpctx, Profile* profile)
 {
     const Config&  config  = model.config;

@@ -28,7 +28,7 @@ PROMPT = "The capital of France is"
 
 HEADER = 32
 
-# Mirrors AblationType in include/glassbox/interp.h, spelled the way the CLI spells it.
+# Mirrors AblationType in include/glassbox/interp.hpp, spelled the way the CLI spells it.
 ABLATIONS = {
     0: "none",
     1: "zero-attn",

@@ -1,7 +1,7 @@
 #pragma once
 
 // Include `glassbox` libraries
-#include "glassbox/interp.h"
+#include "glassbox/interp.hpp"
 
 // Include stdlib
 #include <optional>

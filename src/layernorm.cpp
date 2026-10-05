@@ -1,5 +1,5 @@
 // Include `glassbox` libraries
-#include "glassbox/layernorm.h"
+#include "glassbox/layernorm.hpp"
 
 // Include stdlib
 #include <cmath>

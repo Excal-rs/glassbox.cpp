@@ -1,6 +1,6 @@
 // Include `glassbox` libraries
-#include "glassbox/interp.h"
-#include "glassbox/utils.h"
+#include "glassbox/interp.hpp"
+#include "glassbox/utils.hpp"
 
 // Include stdlib
 #include <algorithm>

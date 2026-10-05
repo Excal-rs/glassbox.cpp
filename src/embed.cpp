@@ -1,5 +1,5 @@
 // Include `glassbox` libraries
-#include "glassbox/embed.h"
+#include "glassbox/embed.hpp"
 
 // --------- Public API ---------
 

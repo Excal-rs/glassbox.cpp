@@ -1,8 +1,8 @@
 // Include `glassbox` libraries
-#include "glassbox/layernorm.h"
-#include "glassbox/utils.h"
-#include "glassbox/attention.h"
-#include "glassbox/benchmarking.h"
+#include "glassbox/layernorm.hpp"
+#include "glassbox/utils.hpp"
+#include "glassbox/attention.hpp"
+#include "glassbox/benchmarking.hpp"
 
 // Include stdlib
 #include <array>
