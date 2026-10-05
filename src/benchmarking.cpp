@@ -5,6 +5,7 @@
 // Include stdlib
 #include <chrono>
 #include <ctime>
+#include <filesystem>
 #include <fstream>
 #include <string>
 
@@ -102,7 +103,8 @@ void record_stage(Profile& profile, Component component, size_t ns)
 // point run after run at the same path.
 void write_profile(const std::string& path, const Profile& profile, const std::string& tag)
 {
-    const bool fresh { !std::ifstream(path).good() };
+    std::error_code ec;
+    const bool fresh { std::filesystem::file_size(path, ec) == 0 || ec };
 
     std::ofstream file(path, std::ios::app);
     if (!file) die("cannot open benchmark file: " + path);
