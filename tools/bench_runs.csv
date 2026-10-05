@@ -1,0 +1,6 @@
+tag,commit,date,prompt_chars,n_tokens,repeat,cpu,cores,l1d,l2,l3,governor,note
+2ca3ce2-20261005T094034-n16-r0,2ca3ce2,2026-10-05T09:40:37,24,16,0,Intel(R) Core(TM) Ultra 7 155H,22,48K,2048K,24576K,performance,
+2ca3ce2-20261005T094034-n16-r1,2ca3ce2,2026-10-05T09:40:40,24,16,1,Intel(R) Core(TM) Ultra 7 155H,22,48K,2048K,24576K,performance,
+2ca3ce2-20261005T094034-n16-r2,2ca3ce2,2026-10-05T09:40:42,24,16,2,Intel(R) Core(TM) Ultra 7 155H,22,48K,2048K,24576K,performance,
+2ca3ce2-20261005T094034-n16-r3,2ca3ce2,2026-10-05T09:40:45,24,16,3,Intel(R) Core(TM) Ultra 7 155H,22,48K,2048K,24576K,performance,
+2ca3ce2-20261005T094034-n16-r4,2ca3ce2,2026-10-05T09:40:48,24,16,4,Intel(R) Core(TM) Ultra 7 155H,22,48K,2048K,24576K,performance,
