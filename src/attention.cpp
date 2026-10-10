@@ -3,6 +3,7 @@
 #include "glassbox/utils.hpp"
 #include "glassbox/attention.hpp"
 #include "glassbox/benchmarking.hpp"
+#include "glassbox/kvcache.hpp"
 
 // Include stdlib
 #include <array>
@@ -26,7 +27,7 @@ static Tensor output_projection(const Tensor& concat, const Attention& attn);
 // --------- Public API ---------
 
 // Runs one block's attention sublayer on x (shape {seq, n_embd})
-Tensor attention(const Tensor& ids, const LayerNorm& ln_1, const Attention& attn, const Config& config, const InterpContext& interpctx, size_t layer_idx, Profile* profile)
+Tensor attention(const Tensor& ids, const LayerNorm& ln_1, const Attention& attn, const Config& config, const InterpContext& interpctx, KV_cache* kv, size_t layer_idx, Profile* profile)
 {
     const float  scale  { 1.0f / std::sqrt(static_cast<float>(config.n_embd / config.n_head)) };
     const size_t seq    { ids.shape[0] };

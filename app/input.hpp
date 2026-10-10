@@ -20,6 +20,8 @@ struct Options {
     AblationConfig              ablation;
     std::optional<std::string>  interp_dump_out;
 
+    bool                        kv_cache {true};
+
     bool                        benchmarking {false};
     std::string                 benchmarking_out {"benchmarking.csv"};
     std::string                 benchmarking_tag;

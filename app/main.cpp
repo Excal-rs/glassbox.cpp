@@ -6,6 +6,7 @@
 #include "glassbox/token.hpp"
 #include "glassbox/forward.hpp"
 #include "glassbox/interp.hpp"
+#include "glassbox/kvcache.hpp"
 #include "glassbox/benchmarking.hpp"
 #include "glassbox/utils.hpp"
 
@@ -16,6 +17,7 @@
 #include <cstdlib>
 #include <fstream>
 #include <iostream>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -70,6 +72,10 @@ int main(int argc, char* argv[]) {
         interpctx.cache = &cache;
     }
 
+    std::optional<KV_cache> kv;
+    if (opt.kv_cache) kv.emplace(model.config);
+    KV_cache* kvp { kv ? &*kv : nullptr };
+
     // Generation
     std::cout << prompt << std::flush;
 
@@ -83,7 +89,7 @@ int main(int argc, char* argv[]) {
         std::cerr << "\rGenerating Token " << (i + 1) << "/" << opt.n_tokens << "..." << std::flush;
 
         const auto pass_started { std::chrono::steady_clock::now() };
-        Tensor x { forward(ids, model, interpctx, profilep) };
+        Tensor x { forward(ids, model, interpctx, kvp, profilep) };
         std::vector<float> logits { lm_logits(x, model, profilep) };
         const size_t pass_ns { elapsed_ns(pass_started) };
 

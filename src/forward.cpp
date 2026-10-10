@@ -5,6 +5,7 @@
 #include "glassbox/mlp.hpp"
 #include "glassbox/forward.hpp"
 #include "glassbox/benchmarking.hpp"
+#include "glassbox/kvcache.hpp"
 
 // Include stdlib
 #include <vector>
@@ -12,7 +13,7 @@
 // --------- Public API ---------
 
 // Contract is documented in forward.hpp.
-Tensor forward(const std::vector<int>& ids, const Model& model, const InterpContext& interpctx, Profile* profile)
+Tensor forward(const std::vector<int>& ids, const Model& model, const InterpContext& interpctx, KV_cache* kv, Profile* profile)
 {
     const Config&  config  = model.config;
     const Network& network = model.network;
@@ -36,7 +37,7 @@ Tensor forward(const std::vector<int>& ids, const Model& model, const InterpCont
     for (size_t layer_idx {0}; layer_idx < network.blocks.size(); ++layer_idx){
         const Block& block = network.blocks[layer_idx];
 
-        x = attention(x, block.ln_1, block.attn, config, interpctx, layer_idx, profile);
+        x = attention(x, block.ln_1, block.attn, config, interpctx, kv, layer_idx, profile);
         if (interpctx.cache) {
             interpctx.cache->layers[layer_idx].stream_post_attention = x.data;
         }
