@@ -13,9 +13,22 @@ using Merge  = std::unordered_map<std::string, u_int16_t>;
 
 
 // --------- Model Network Types ---------
+inline size_t numel(const std::vector<size_t>& shape)
+{
+    size_t n {1};
+    for (size_t d : shape) n *= d;
+    return n;
+}
+
 struct Tensor {
     std::vector<float>  data;
     std::vector<size_t> shape;
+
+    Tensor() = default;
+
+    // Zero-filled, sized to the product of shape
+    explicit Tensor(const std::vector<size_t>& shape_)
+        : data(numel(shape_)), shape(shape_) {}
 
     // 2-D element access: maps (row, col) to the flat, row-major index.
     // Only valid for rank-2 tensors (shape.size() == 2).

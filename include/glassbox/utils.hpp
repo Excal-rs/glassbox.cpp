@@ -28,10 +28,7 @@ Tensor matmul(const TA& a, const TB& b)
     const size_t k { a.shape[1] };
     const size_t n { b.shape[1] };
 
-    Tensor product {
-        .data  = std::vector<float>(m * n),
-        .shape = {m, n}
-    };
+    Tensor product { {m, n} };
 
     for (size_t i {0}; i < m; ++i){
         for (size_t p {0}; p < k; ++p){
@@ -52,10 +49,7 @@ Tensor transpose(const TA& a)
     const size_t m { a.shape[0] };
     const size_t n { a.shape[1] };
 
-    Tensor out {
-        .data  = std::vector<float>(m * n),
-        .shape = {n, m}
-    };
+    Tensor out { {n, m} };
 
     for (size_t i {0}; i < m; ++i){
         for (size_t j {0}; j < n; ++j){

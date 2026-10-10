@@ -108,8 +108,7 @@ static std::array<Tensor, 3> qkv_projection(const Tensor& xn, const Attention& a
     // [Q, K, V]
     std::array<Tensor, 3> qkv {};
     for (Tensor& t : qkv){
-        t.shape = {seq, n_embd};
-        t.data  = std::vector<float>(seq * n_embd);
+        t = Tensor { {seq, n_embd} };
     }
 
     // Extract data: n's columns are laid out as [Q | K | V], each n_embd wide.
@@ -131,12 +130,7 @@ static std::vector<Tensor> split_heads(const Tensor& m, const Config& config)
     const size_t n_head   { config.n_head };
     const size_t head_dim { n_embd / n_head };
 
-    // Initiating tensors
-    std::vector<Tensor> heads(n_head);
-    for (size_t i {0}; i < n_head; ++i){
-        heads[i].data = std::vector<float>(seq * head_dim);
-        heads[i].shape = {seq, head_dim};
-    }
+    std::vector<Tensor> heads(n_head, Tensor { {seq, head_dim} });
 
     // Assigning tensor values
     for (size_t i {0}; i < n_head; ++i){
@@ -206,10 +200,7 @@ static Tensor merge_heads(const std::vector<Tensor>& heads)
     const size_t head_dim { heads[0].shape[1] };
     const size_t n_embd   { n_head * head_dim };
 
-    Tensor out {
-        .data  = std::vector<float>(seq * n_embd),
-        .shape = {seq, n_embd}
-    };
+    Tensor out { {seq, n_embd} };
 
     for (size_t i {0}; i < n_head; ++i){
         for (size_t j {0}; j < seq; ++j){

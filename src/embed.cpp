@@ -7,10 +7,7 @@
 // Returns a Tensor containing the embedded vectors.
 Tensor embed(const std::vector<int>& tokens, const Model& model){
     const size_t n_embd { model.config.n_embd };
-    Tensor out {
-        .data  = std::vector<float>(tokens.size() * n_embd),
-        .shape = {tokens.size(), n_embd}
-    };
+    Tensor out { {tokens.size(), n_embd} };
 
     const Tensor& wte = model.network.wte;
     const Tensor& wpe = model.network.wpe;
