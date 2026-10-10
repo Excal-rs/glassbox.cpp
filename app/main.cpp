@@ -42,21 +42,18 @@ int main(int argc, char* argv[]) {
     if (ids.empty()) die("empty prompt");
     const size_t n_prompt_tokens { ids.size() };
 
-    // Interp init. Ablation is independent of capture - either, both, or neither.
+    // Interp init
     ModelCache       cache {};
     InterpContext    interpctx {};
     std::vector<int> cached_ids;
 
     interpctx.ablation = opt.ablation;
     if (opt.ablation.type != AblationType::NONE) {
-        // forward() validates as well; doing it here too reports a bad flag
-        // before any generated text has reached stdout.
         validate_ablation(opt.ablation, model.config, ids.size());
         std::cerr << "ablation: " << describe_ablation(opt.ablation) << "\n";
     }
 
-    // Benchmark init. The profile is owned here and handed to forward() as a
-    // pointer, so a run without -b pays one null check per component.
+    // Benchmark init
     Profile  profile {};
     Profile* profilep { nullptr };
     if (opt.benchmarking) {
@@ -67,8 +64,6 @@ int main(int argc, char* argv[]) {
     }
 
     if (opt.interp_dump_out) {
-        // Size for the longest pass this run can reach, so the per-pass hook copies
-        // reuse the capacity instead of reallocating every token.
         const size_t max_seq_len { std::min(n_prompt_tokens + static_cast<size_t>(opt.n_tokens),
                                             model.config.n_ctx) };
         cache = init_cache(model.config, max_seq_len);
@@ -79,7 +74,7 @@ int main(int argc, char* argv[]) {
     std::cout << prompt << std::flush;
 
     for (int i {0}; i < opt.n_tokens && ids.size() < model.config.n_ctx; ++i) {
-        // Each pass overwrites the cache, so what survives the loop is the last one.
+        // Each pass overwrites the cache, only final one written
         cached_ids = ids;
 
         profile.pass_index = static_cast<size_t>(i);
@@ -92,7 +87,7 @@ int main(int argc, char* argv[]) {
         std::vector<float> logits { lm_logits(x, model, profilep) };
         const size_t pass_ns { elapsed_ns(pass_started) };
 
-        // Greedy decoding, currently being used for testing, TODO: Add other modes and flags for this
+        // Greedy decoding, TODO: Add other modes and flags for this
         size_t best {0};
         for (size_t t {1}; t < logits.size(); ++t) {
             if (logits[t] > logits[best]) best = t;
@@ -109,9 +104,7 @@ int main(int argc, char* argv[]) {
     }
     std::cerr << "\n";
 
-    // Decode every generated token in one call, rather than once per token -
-    // decode() rebuilds its lookup tables on each call, so batching this avoids
-    // paying that cost n_tokens times over
+    // Decode
     const auto decode_started { std::chrono::steady_clock::now() };
     const std::vector<int> generated_ids(ids.begin() + static_cast<std::ptrdiff_t>(n_prompt_tokens), ids.end());
     const std::string generated { decode(generated_ids, model.vocab) };
@@ -135,7 +128,6 @@ int main(int argc, char* argv[]) {
 
         dump_cache(file, cache, model.config, cached_ids, n_prompt_tokens, opt.ablation);
 
-        // ofstream's destructor flushes but swallows any error, so close explicitly.
         file.close();
         if (!file) die("cannot finish writing interp dump file: " + *opt.interp_dump_out);
 
