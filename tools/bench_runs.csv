@@ -4,3 +4,27 @@ tag,commit,date,prompt_chars,n_tokens,repeat,cpu,cores,l1d,l2,l3,governor,note
 2ca3ce2-20261005T094034-n16-r2,2ca3ce2,2026-10-05T09:40:42,24,16,2,Intel(R) Core(TM) Ultra 7 155H,22,48K,2048K,24576K,performance,
 2ca3ce2-20261005T094034-n16-r3,2ca3ce2,2026-10-05T09:40:45,24,16,3,Intel(R) Core(TM) Ultra 7 155H,22,48K,2048K,24576K,performance,
 2ca3ce2-20261005T094034-n16-r4,2ca3ce2,2026-10-05T09:40:48,24,16,4,Intel(R) Core(TM) Ultra 7 155H,22,48K,2048K,24576K,performance,
+62b613d-20261011T165107-kv-n16-r0,62b613d,2026-10-11T16:51:08,24,16,0,Intel(R) Core(TM) Ultra 7 155H,22,48K,2048K,24576K,performance,kv cache on
+62b613d-20261011T165107-kv-n16-r1,62b613d,2026-10-11T16:51:09,24,16,1,Intel(R) Core(TM) Ultra 7 155H,22,48K,2048K,24576K,performance,kv cache on
+62b613d-20261011T165107-kv-n16-r2,62b613d,2026-10-11T16:51:10,24,16,2,Intel(R) Core(TM) Ultra 7 155H,22,48K,2048K,24576K,performance,kv cache on
+62b613d-20261011T165107-kv-n16-r3,62b613d,2026-10-11T16:51:11,24,16,3,Intel(R) Core(TM) Ultra 7 155H,22,48K,2048K,24576K,performance,kv cache on
+62b613d-20261011T165107-kv-n16-r4,62b613d,2026-10-11T16:51:12,24,16,4,Intel(R) Core(TM) Ultra 7 155H,22,48K,2048K,24576K,performance,kv cache on
+62b613d-20261011T165107-kv-n128-r0,62b613d,2026-10-11T16:51:18,24,128,0,Intel(R) Core(TM) Ultra 7 155H,22,48K,2048K,24576K,performance,kv cache on
+62b613d-20261011T165107-kv-n128-r1,62b613d,2026-10-11T16:51:23,24,128,1,Intel(R) Core(TM) Ultra 7 155H,22,48K,2048K,24576K,performance,kv cache on
+62b613d-20261011T165107-kv-n128-r2,62b613d,2026-10-11T16:51:29,24,128,2,Intel(R) Core(TM) Ultra 7 155H,22,48K,2048K,24576K,performance,kv cache on
+62b613d-20261011T165107-kv-n128-r3,62b613d,2026-10-11T16:51:35,24,128,3,Intel(R) Core(TM) Ultra 7 155H,22,48K,2048K,24576K,performance,kv cache on
+62b613d-20261011T165107-kv-n128-r4,62b613d,2026-10-11T16:51:41,24,128,4,Intel(R) Core(TM) Ultra 7 155H,22,48K,2048K,24576K,performance,kv cache on
+62b613d-20261011T165107-kv-n256-r0,62b613d,2026-10-11T16:51:52,24,256,0,Intel(R) Core(TM) Ultra 7 155H,22,48K,2048K,24576K,performance,kv cache on
+62b613d-20261011T165107-kv-n256-r1,62b613d,2026-10-11T16:52:03,24,256,1,Intel(R) Core(TM) Ultra 7 155H,22,48K,2048K,24576K,performance,kv cache on
+62b613d-20261011T165107-kv-n256-r2,62b613d,2026-10-11T16:52:14,24,256,2,Intel(R) Core(TM) Ultra 7 155H,22,48K,2048K,24576K,performance,kv cache on
+62b613d-20261011T165107-kv-n256-r3,62b613d,2026-10-11T16:52:26,24,256,3,Intel(R) Core(TM) Ultra 7 155H,22,48K,2048K,24576K,performance,kv cache on
+62b613d-20261011T165107-kv-n256-r4,62b613d,2026-10-11T16:52:37,24,256,4,Intel(R) Core(TM) Ultra 7 155H,22,48K,2048K,24576K,performance,kv cache on
+62b613d-dirty-20261011T165238-nokv-n16-r0,62b613d-dirty,2026-10-11T16:52:41,24,16,0,Intel(R) Core(TM) Ultra 7 155H,22,48K,2048K,24576K,performance,kv cache off
+62b613d-dirty-20261011T165238-nokv-n16-r1,62b613d-dirty,2026-10-11T16:52:44,24,16,1,Intel(R) Core(TM) Ultra 7 155H,22,48K,2048K,24576K,performance,kv cache off
+62b613d-dirty-20261011T165238-nokv-n16-r2,62b613d-dirty,2026-10-11T16:52:47,24,16,2,Intel(R) Core(TM) Ultra 7 155H,22,48K,2048K,24576K,performance,kv cache off
+62b613d-dirty-20261011T165238-nokv-n128-r0,62b613d-dirty,2026-10-11T16:54:14,24,128,0,Intel(R) Core(TM) Ultra 7 155H,22,48K,2048K,24576K,performance,kv cache off
+62b613d-dirty-20261011T165238-nokv-n128-r1,62b613d-dirty,2026-10-11T16:55:40,24,128,1,Intel(R) Core(TM) Ultra 7 155H,22,48K,2048K,24576K,performance,kv cache off
+62b613d-dirty-20261011T165238-nokv-n128-r2,62b613d-dirty,2026-10-11T16:57:08,24,128,2,Intel(R) Core(TM) Ultra 7 155H,22,48K,2048K,24576K,performance,kv cache off
+62b613d-dirty-20261011T165238-nokv-n256-r0,62b613d-dirty,2026-10-11T17:02:35,24,256,0,Intel(R) Core(TM) Ultra 7 155H,22,48K,2048K,24576K,performance,kv cache off
+62b613d-dirty-20261011T165238-nokv-n256-r1,62b613d-dirty,2026-10-11T17:08:04,24,256,1,Intel(R) Core(TM) Ultra 7 155H,22,48K,2048K,24576K,performance,kv cache off
+62b613d-dirty-20261011T165238-nokv-n256-r2,62b613d-dirty,2026-10-11T17:13:36,24,256,2,Intel(R) Core(TM) Ultra 7 155H,22,48K,2048K,24576K,performance,kv cache off

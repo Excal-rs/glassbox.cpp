@@ -1,13 +1,16 @@
 // Include `glassbox` libraries
 #include "glassbox/layernorm.hpp"
+#include "glassbox/model.hpp"
 #include "glassbox/utils.hpp"
 #include "glassbox/attention.hpp"
 #include "glassbox/benchmarking.hpp"
+#include "glassbox/kvcache.hpp"
 
 // Include stdlib
 #include <array>
 #include <cmath>
 #include <limits>
+#include <algorithm>
 
 // --------- Constants ---------
 
@@ -18,7 +21,7 @@ static constexpr float NEG_INF = -std::numeric_limits<float>::infinity();
 
 static std::array<Tensor, 3> qkv_projection(const Tensor& xn, const Attention& attn, const Config& config);
 static std::vector<Tensor> split_heads(const Tensor& m, const Config& config);
-static Tensor attention_head(const Tensor& Q, const Tensor& K, const Tensor& V, float scale, Profile* profile, size_t layer_idx);
+static Tensor attention_head(const Tensor& Q, const TensorView& K, const TensorView& V, float scale, Profile* profile, size_t layer_idx);
 static Tensor merge_heads(const std::vector<Tensor>& heads);
 static Tensor output_projection(const Tensor& concat, const Attention& attn);
 
@@ -26,11 +29,14 @@ static Tensor output_projection(const Tensor& concat, const Attention& attn);
 // --------- Public API ---------
 
 // Runs one block's attention sublayer on x (shape {seq, n_embd})
-Tensor attention(const Tensor& ids, const LayerNorm& ln_1, const Attention& attn, const Config& config, const InterpContext& interpctx, size_t layer_idx, Profile* profile)
+Tensor attention(const Tensor& ids, const LayerNorm& ln_1, const Attention& attn, const Config& config, const InterpContext& interpctx, KV_cache* kv, size_t pos_offset, size_t layer_idx, Profile* profile)
 {
-    const float  scale  { 1.0f / std::sqrt(static_cast<float>(config.n_embd / config.n_head)) };
-    const size_t seq    { ids.shape[0] };
-    const size_t n_embd { config.n_embd };
+    const size_t n_head   { config.n_head };
+    const size_t n_embd   { config.n_embd };
+    const float  scale    { 1.0f / std::sqrt(static_cast<float>(n_embd / n_head)) };
+    const size_t head_dim { n_embd / n_head };
+    const size_t seq      { ids.shape[0] };
+    const size_t total    { pos_offset + seq };
 
     Tensor xn {};
     {
@@ -44,19 +50,29 @@ Tensor attention(const Tensor& ids, const LayerNorm& ln_1, const Attention& attn
         QKV = qkv_projection(xn, attn, config);
     }
 
-    // Split each of Q, K, V into their per-head matrices
-    std::vector<Tensor> Q {}, K {}, V {};
+    if (kv){
+        KV_layer &layer = kv->layers[layer_idx];
+        std::copy(QKV[1].data.begin(), QKV[1].data.end(), layer.k.data.begin() + pos_offset * n_embd);
+        std::copy(QKV[2].data.begin(), QKV[2].data.end(), layer.v.data.begin() + pos_offset * n_embd);
+    }
+
+    // Decide on KV source
+    Tensor& K { kv ? kv->layers[layer_idx].k : QKV[1] };
+    Tensor& V { kv ? kv->layers[layer_idx].v : QKV[2] };
+
+    // Split each of Q into per-head matrix
+    std::vector<Tensor> Q {};
     {
-        ScopeTimer timer { profile, Component::SPLIT, layer_idx, copy_cost(3 * seq * n_embd) };
+        ScopeTimer timer { profile, Component::SPLIT, layer_idx, copy_cost(seq * n_embd) };
         Q = split_heads(QKV[0], config);
-        K = split_heads(QKV[1], config);
-        V = split_heads(QKV[2], config);
     }
 
     // Run attention on each head independently
     std::vector<Tensor> O(config.n_head);
     for (size_t h {0}; h < config.n_head; ++h){
-        O[h] = attention_head(Q[h], K[h], V[h], scale, profile, layer_idx);
+        TensorView K_h { K, 0, h * head_dim, total, head_dim};
+        TensorView V_h { V, 0, h * head_dim, total, head_dim};
+        O[h] = attention_head(Q[h], K_h, V_h, scale, profile, layer_idx);
     }
 
     Tensor merged {};
@@ -72,7 +88,7 @@ Tensor attention(const Tensor& ids, const LayerNorm& ln_1, const Attention& attn
     }
 
     if (interpctx.cache) {
-        interpctx.cache->layers[layer_idx].attention_output = out.data;
+        std::copy(out.data.begin(), out.data.end(), interpctx.cache->layers[layer_idx].attention_output.begin() + pos_offset * n_embd);
     }
     ablate_attention(out.data, interpctx.ablation, layer_idx);
 
@@ -108,8 +124,7 @@ static std::array<Tensor, 3> qkv_projection(const Tensor& xn, const Attention& a
     // [Q, K, V]
     std::array<Tensor, 3> qkv {};
     for (Tensor& t : qkv){
-        t.shape = {seq, n_embd};
-        t.data  = std::vector<float>(seq * n_embd);
+        t = Tensor { {seq, n_embd} };
     }
 
     // Extract data: n's columns are laid out as [Q | K | V], each n_embd wide.
@@ -131,12 +146,7 @@ static std::vector<Tensor> split_heads(const Tensor& m, const Config& config)
     const size_t n_head   { config.n_head };
     const size_t head_dim { n_embd / n_head };
 
-    // Initiating tensors
-    std::vector<Tensor> heads(n_head);
-    for (size_t i {0}; i < n_head; ++i){
-        heads[i].data = std::vector<float>(seq * head_dim);
-        heads[i].shape = {seq, head_dim};
-    }
+    std::vector<Tensor> heads(n_head, Tensor { {seq, head_dim} });
 
     // Assigning tensor values
     for (size_t i {0}; i < n_head; ++i){
@@ -152,48 +162,49 @@ static std::vector<Tensor> split_heads(const Tensor& m, const Config& config)
 
 // transpose(K) is hoisted out of the matmul call so the copy is measured as
 // itself: it does no arithmetic, and folding it into `scores` would hide that.
-static Tensor attention_head(const Tensor& Q, const Tensor& K, const Tensor& V, float scale, Profile* profile, size_t layer_idx)
+static Tensor attention_head(const Tensor& Q, const TensorView& K, const TensorView& V, float scale, Profile* profile, size_t layer_idx)
 {
-    const size_t seq      { Q.shape[0] };
-    const size_t head_dim { Q.shape[1] };
-
+    const size_t seq        { Q.shape[0] };
+    const size_t head_dim   { Q.shape[1] };
+    const size_t total      { K.shape[0] };
+    const size_t pos_offset { total - seq };
     Tensor Kt {};
     {
-        ScopeTimer timer { profile, Component::TRANSPOSE, layer_idx, copy_cost(seq * head_dim) };
+        ScopeTimer timer { profile, Component::TRANSPOSE, layer_idx, copy_cost(total * head_dim) };
         Kt = transpose(K);
     }
 
     Tensor S {};
     {
-        ScopeTimer timer { profile, Component::SCORES, layer_idx, matmul_cost(seq, head_dim, seq) };
+        ScopeTimer timer { profile, Component::SCORES, layer_idx, matmul_cost(seq, head_dim, total) };
         S = matmul(Q, Kt);
     }
 
     {
-        ScopeTimer timer { profile, Component::SOFTMAX, layer_idx, elementwise_cost(seq * seq, 4) };
+        ScopeTimer timer { profile, Component::SOFTMAX, layer_idx, elementwise_cost(seq * total, 4) };
         for (size_t i {0}; i < seq; ++i){
             // Scale and mask future positions
             float row_max {NEG_INF};
-            for (size_t j {0}; j < seq; ++j){
-                const float s = (j > i) ? NEG_INF : S(i, j) * scale;
+            for (size_t j {0}; j < total; ++j){
+                const float s = (j > pos_offset + i) ? NEG_INF : S(i, j) * scale;
                 S(i, j) = s;
                 if (s > row_max) row_max = s;
             }
 
             // Softmax over the row
             float sum {0.0f};
-            for (size_t j {0}; j < seq; ++j){
+            for (size_t j {0}; j < total; ++j){
                 const float e = std::exp(S(i, j) - row_max);
                 S(i, j) = e;
                 sum += e;
             }
-            for (size_t j {0}; j < seq; ++j){
+            for (size_t j {0}; j < total; ++j){
                 S(i, j) /= sum;
             }
         }
     }
 
-    ScopeTimer timer { profile, Component::AV, layer_idx, matmul_cost(seq, seq, head_dim) };
+    ScopeTimer timer { profile, Component::AV, layer_idx, matmul_cost(seq, total, head_dim) };
     return matmul(S, V);
 }
 
@@ -206,10 +217,7 @@ static Tensor merge_heads(const std::vector<Tensor>& heads)
     const size_t head_dim { heads[0].shape[1] };
     const size_t n_embd   { n_head * head_dim };
 
-    Tensor out {
-        .data  = std::vector<float>(seq * n_embd),
-        .shape = {seq, n_embd}
-    };
+    Tensor out { {seq, n_embd} };
 
     for (size_t i {0}; i < n_head; ++i){
         for (size_t j {0}; j < seq; ++j){

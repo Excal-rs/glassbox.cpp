@@ -41,7 +41,7 @@ void dump_cache(std::ostream& file, const ModelCache& cache, const Config& confi
 
     if (seq_len == 0)                                die("dump_cache: no tokens to describe");
     if (n_prompt_tokens > seq_len)                   die("dump_cache: prompt is longer than the cached pass");
-    if (cache.init_embeddings.size() != stream_size) die("dump_cache: init_embeddings is not sized for this pass");
+    if (cache.init_embeddings.size() < stream_size)  die("dump_cache: init_embeddings is too small for this pass");
     if (cache.layers.size() != config.n_layer)       die("dump_cache: layer count does not match config");
 
     // Header: 32 bytes, then one u32 per token. The ablation fields say how the
@@ -127,8 +127,8 @@ static void write_u32(std::ostream& file, const size_t value)
 // Writes one activation buffer as raw float32 bytes
 static void write_buffer(std::ostream& file, const std::vector<float>& buffer, const size_t stream_size)
 {
-    if (buffer.size() != stream_size) die("dump_cache: buffer is not sized for this pass");
+    if (buffer.size() < stream_size) die("dump_cache: buffer is too small for this pass");
 
     file.write(reinterpret_cast<const char*>(buffer.data()),
-               static_cast<std::streamsize>(buffer.size() * sizeof(float)));
+               static_cast<std::streamsize>(stream_size * sizeof(float)));
 }

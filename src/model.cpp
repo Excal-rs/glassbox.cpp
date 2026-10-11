@@ -126,14 +126,15 @@ static SafeTensors open_safetensors(const std::string& path){
 static Tensor load_tensor(SafeTensors& st, const std::string& name){
     auto& meta = st.header.at(name);
 
-    Tensor t {};
-    t.shape = meta.at("shape").get<std::vector<size_t>>();
+    Tensor t { meta.at("shape").get<std::vector<size_t>>() };
 
     json::value_type offsets(meta.at("data_offsets"));
     size_t begin { offsets.at(0) };
     size_t end   { offsets.at(1) };
 
-    t.data.resize((end - begin) / sizeof(float));
+    if (end - begin != t.data.size() * sizeof(float))
+        die("tensor " + name + ": data_offsets do not match its shape");
+
     st.file.seekg(st.data_start + begin);
     st.file.read(reinterpret_cast<char*>(t.data.data()), end - begin);
     return t;

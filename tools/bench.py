@@ -31,7 +31,7 @@ DETAIL = os.path.join(REPO, "benchmarks.csv")               # written by the eng
 RUNS   = os.path.join(REPO, "tools", "bench_runs.csv")      # written here
 
 PROMPT  = "The capital of France is"
-SWEEP   = (16,)
+SWEEP   = (16, 128, 256)
 REPEATS = 5
 
 # One row per invocation. The engine's rows join to these on `tag`, which keeps
@@ -109,9 +109,11 @@ def probe_commit(written):
 
 # --------- Measurement ---------
 
-def run_engine(binary, model_dir, prompt, n_tokens, detail, tag):
+def run_engine(binary, model_dir, prompt, n_tokens, detail, tag, no_kv_cache):
     cmd = [binary, model_dir, "-p", prompt, "-n", str(n_tokens), "-o", os.devnull,
            "-b", "--bench-out", detail, "--bench-tag", tag]
+    if no_kv_cache:
+        cmd.append("--no-kv-cache")
 
     done = subprocess.run(cmd, capture_output=True, text=True)
     if done.returncode != 0:
@@ -120,15 +122,15 @@ def run_engine(binary, model_dir, prompt, n_tokens, detail, tag):
 
 
 # Runs the whole matrix, returning one metadata row per invocation.
-def sweep(binary, model_dir, prompt, sweep_tokens, repeats, detail, commit, machine, note, verbose):
+def sweep(binary, model_dir, prompt, sweep_tokens, repeats, detail, commit, machine, note, verbose, no_kv_cache):
     stamp = time.strftime("%Y%m%dT%H%M%S")
     rows  = []
 
     for n_tokens in sweep_tokens:
         for repeat in range(repeats):
-            tag = f"{commit}-{stamp}-n{n_tokens}-r{repeat}"
+            tag = f"{commit}-{stamp}-{'nokv' if no_kv_cache else 'kv'}-n{n_tokens}-r{repeat}"
             started = time.perf_counter()
-            run_engine(binary, model_dir, prompt, n_tokens, detail, tag)
+            run_engine(binary, model_dir, prompt, n_tokens, detail, tag, no_kv_cache)
             elapsed = time.perf_counter() - started
 
             rows.append({
@@ -347,6 +349,7 @@ def main():
     ap.add_argument("--sweep",   default=",".join(map(str, SWEEP)), help="token counts to measure")
     ap.add_argument("--repeats", type=int, default=REPEATS)
     ap.add_argument("--note",    default="", help="free text stored with every run row")
+    ap.add_argument("--no-kv-cache", action="store_true", help="pass --no-kv-cache to the engine")
     ap.add_argument("--no-run",     action="store_true", help="aggregate the existing CSV, measure nothing")
     ap.add_argument("--keep-first", action="store_true", help="keep pass 0, which touches cold weight pages")
     ap.add_argument("--self-test",  action="store_true")
@@ -378,7 +381,7 @@ def main():
         print(f"sweep {sweep_tokens} x {args.repeats} repeats, prompt {args.prompt!r}\n")
 
         runs = sweep(args.binary, args.model, args.prompt, sweep_tokens, args.repeats,
-                     args.detail, commit, machine, args.note, args.verbose)
+                     args.detail, commit, machine, args.note, args.verbose, args.no_kv_cache)
         tags = {r["tag"] for r in runs}
         append_rows(args.runs, RUN_FIELDS, runs)
 

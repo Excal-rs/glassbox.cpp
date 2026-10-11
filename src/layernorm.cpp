@@ -16,10 +16,7 @@ Tensor layernorm(const Tensor& x, const LayerNorm& ln, float eps){
     const size_t seq { x.shape[0] };
     const size_t dim { x.shape[1] };
 
-    Tensor out {
-        .data  = std::vector<float>(x.data.size()),
-        .shape = x.shape
-    };
+    Tensor out { x.shape };
 
     for (size_t r {0}; r < seq; ++r){
         const size_t base { r * dim };

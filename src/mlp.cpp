@@ -5,6 +5,7 @@
 #include "glassbox/benchmarking.hpp"
 
 // Include stdlib
+#include <algorithm>
 #include <cmath>
 
 // --------- Constants ---------
@@ -17,7 +18,7 @@ static inline float tanh_approx(float u);
 // --------- Public API ---------
 
 // Runs one block's MLP sublayer on x (shape {seq, n_embd})
-Tensor mlp(const Tensor& x, const LayerNorm& ln, const MLP& mlp, const Config& config, const InterpContext& interpctx, size_t layer_idx, Profile* profile)
+Tensor mlp(const Tensor& x, const LayerNorm& ln, const MLP& mlp, const Config& config, const InterpContext& interpctx, size_t pos_offset, size_t layer_idx, Profile* profile)
 {
     const size_t seq    { x.shape[0] };
     const size_t n_embd { config.n_embd };
@@ -63,7 +64,7 @@ Tensor mlp(const Tensor& x, const LayerNorm& ln, const MLP& mlp, const Config& c
     }
 
     if (interpctx.cache) {
-        interpctx.cache->layers[layer_idx].mlp_output = out.data;
+        std::copy(out.data.begin(), out.data.end(), interpctx.cache->layers[layer_idx].mlp_output.begin() + pos_offset * n_embd);
     }
     ablate_mlp(out.data, interpctx.ablation, layer_idx);
 

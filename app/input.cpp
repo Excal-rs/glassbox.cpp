@@ -59,6 +59,9 @@ static constexpr Flag FLAGS[] = {
      "passes it by: zero-attn:<n> or zero-mlp:<n>",
      [](Options& o, std::string_view v) { o.ablation = parse_ablation(v); }},
 
+    {"", "--no-kv-cache", "", "recompute every token's keys and values each pass",
+     [](Options& o, std::string_view) { o.kv_cache = false; }},
+
     {"-b", "--benchmark", "", "time every component and append them to a CSV",
      [](Options& o, std::string_view) { o.benchmarking = true; }},
 
