@@ -8,6 +8,7 @@
 #include "glassbox/kvcache.hpp"
 
 // Include stdlib
+#include <algorithm>
 #include <vector>
 
 // --------- Public API ---------
@@ -31,7 +32,7 @@ Tensor forward(const std::vector<int>& ids, const Model& model, const InterpCont
 
     // Checkpoint: the residual stream entering the first block (wte + wpe).
     if (interpctx.cache) {
-        interpctx.cache->init_embeddings = x.data;
+        std::copy(x.data.begin(), x.data.end(), interpctx.cache->init_embeddings.begin() + pos_offset * config.n_embd);
     }
 
     // Both sublayers handle their own pre-norm and residual add
@@ -40,14 +41,16 @@ Tensor forward(const std::vector<int>& ids, const Model& model, const InterpCont
 
         x = attention(x, block.ln_1, block.attn, config, interpctx, kv, pos_offset, layer_idx, profile);
         if (interpctx.cache) {
-            interpctx.cache->layers[layer_idx].stream_post_attention = x.data;
+            std::copy(x.data.begin(), x.data.end(), interpctx.cache->layers[layer_idx].stream_post_attention.begin() + pos_offset * config.n_embd);
         }
 
-        x = mlp(x, block.ln_2, block.mlp, config, interpctx, layer_idx, profile);
+        x = mlp(x, block.ln_2, block.mlp, config, interpctx, pos_offset, layer_idx, profile);
         if (interpctx.cache) {
-            interpctx.cache->layers[layer_idx].stream_post_mlp = x.data;
+            std::copy(x.data.begin(), x.data.end(), interpctx.cache->layers[layer_idx].stream_post_mlp.begin() + pos_offset * config.n_embd);
         }
     }
+
+    if (kv) kv->length += seq;
 
     ScopeTimer timer { profile, Component::LN_F, config.n_layer, elementwise_cost(seq * config.n_embd, 5) };
     return layernorm(x, network.ln_f, config.ln_eps);

@@ -73,14 +73,18 @@ int main(int argc, char* argv[]) {
     }
 
     std::optional<KV_cache> kv;
-    if (opt.kv_cache) kv.emplace(model.config);
+    if (opt.kv_cache && opt.ablation.type != AblationType::NONE) {
+        std::cerr << "kv cache disabled: not supported with ablation\n";
+    } else if (opt.kv_cache) {
+        kv.emplace(model.config);
+    }
     KV_cache* kvp { kv ? &*kv : nullptr };
 
     // Generation
     std::cout << prompt << std::flush;
 
     for (int i {0}; i < opt.n_tokens && ids.size() < model.config.n_ctx; ++i) {
-        // Each pass overwrites the cache, only final one written
+        // Append this passes dump in memory
         cached_ids = ids;
 
         profile.pass_index = static_cast<size_t>(i);
@@ -89,7 +93,9 @@ int main(int argc, char* argv[]) {
         std::cerr << "\rGenerating Token " << (i + 1) << "/" << opt.n_tokens << "..." << std::flush;
 
         const auto pass_started { std::chrono::steady_clock::now() };
-        Tensor x { forward(ids, model, interpctx, kvp, profilep) };
+        const size_t start { kvp ? kvp->length : 0 };
+        const std::vector<int> new_ids(ids.begin() + start, ids.end());
+        Tensor x { forward(new_ids, model, interpctx, kvp, profilep) };
         std::vector<float> logits { lm_logits(x, model, profilep) };
         const size_t pass_ns { elapsed_ns(pass_started) };
 
@@ -112,7 +118,7 @@ int main(int argc, char* argv[]) {
 
     // Decode
     const auto decode_started { std::chrono::steady_clock::now() };
-    const std::vector<int> generated_ids(ids.begin() + static_cast<std::ptrdiff_t>(n_prompt_tokens), ids.end());
+    const std::vector<int> generated_ids(ids.begin() + n_prompt_tokens, ids.end());
     const std::string generated { decode(generated_ids, model.vocab) };
     const size_t decode_ns { elapsed_ns(decode_started) };
 
