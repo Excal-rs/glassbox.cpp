@@ -31,7 +31,7 @@ DETAIL = os.path.join(REPO, "benchmarks.csv")               # written by the eng
 RUNS   = os.path.join(REPO, "tools", "bench_runs.csv")      # written here
 
 PROMPT  = "The capital of France is"
-SWEEP   = (16,)
+SWEEP   = (16, 128, 256)
 REPEATS = 5
 
 # One row per invocation. The engine's rows join to these on `tag`, which keeps
