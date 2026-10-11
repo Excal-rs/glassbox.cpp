@@ -9,6 +9,7 @@
 #include <array>
 #include <cmath>
 #include <limits>
+#include <algorithm>
 
 // --------- Constants ---------
 
@@ -32,6 +33,7 @@ Tensor attention(const Tensor& ids, const LayerNorm& ln_1, const Attention& attn
     const float  scale  { 1.0f / std::sqrt(static_cast<float>(config.n_embd / config.n_head)) };
     const size_t seq    { ids.shape[0] };
     const size_t n_embd { config.n_embd };
+    const size_t total  { pos_offset + seq };
 
     Tensor xn {};
     {
@@ -43,6 +45,12 @@ Tensor attention(const Tensor& ids, const LayerNorm& ln_1, const Attention& attn
     {
         ScopeTimer timer { profile, Component::QKV, layer_idx, matmul_cost(seq, n_embd, 3 * n_embd) };
         QKV = qkv_projection(xn, attn, config);
+    }
+
+    if (kv){
+        KV_layer &layer = kv->layers[layer_idx];
+        std::copy(QKV[1].data.begin(), QKV[1].data.end(), layer.k.data.begin() + pos_offset * n_embd);
+        std::copy(QKV[2].data.begin(), QKV[2].data.end(), layer.v.data.begin() + pos_offset * n_embd);
     }
 
     // Split each of Q, K, V into their per-head matrices
