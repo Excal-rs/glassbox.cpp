@@ -47,6 +47,15 @@ and the residual stream carries on without it. The captured buffers always hold
 the *clean* value, so a dump shows you both what the sublayer computed and what
 the model actually did with it. Heads and individual neurons are the next step.
 
+## Performance
+
+Generation uses a KV cache, so each new token only computes its own keys and
+values and attends over the cached ones. Per-token cost stays flat instead of
+growing with the sequence, which makes 256 tokens 30x faster than recomputing
+the whole prefix every pass. Pass `--no-kv-cache` to get the old behaviour.
+
+![KV cache speedup: generation time, speedup, and per-token latency with and without the cache](assets/kv_cache_speedup.png)
+
 ## Building
 
 ```bash
@@ -88,7 +97,8 @@ model/
 | `-o, --output <path>` | write the full response to a file |
 | `-n, --n-tokens <count>` | tokens to generate (default 50) |
 | `-i, --interp <path>` | dump the activation cache |
-| `-a, --ablate <kind>:<n>` | `zero-attn:<n>` or `zero-mlp:<n>` |
+| `-a, --ablate <kind>:<n>` | `zero-attn:<n>` or `zero-mlp:<n>` (runs without the KV cache) |
+| `--no-kv-cache` | recompute every token's keys and values each pass |
 
 With neither `-p` nor `-f`, the prompt is read from stdin. Decoding is greedy
 and streamed token by token, stopping at `<|endoftext|>` or the 1024-token
@@ -104,10 +114,10 @@ The cat sat on the ground, and the dog was still in the
 
 ### Activation dumps
 
-`-i <path>` writes the run's last forward pass to a binary file: the prompt plus
-every token generated before it. Since attention is causal and there is no KV
-cache, that last pass recomputes every earlier one exactly, so a single file
-covers the whole run.
+`-i <path>` writes the activations for the whole run to a binary file: the
+prompt plus every token generated before the last one. Each pass appends its
+new tokens' rows in memory, so the file is the same with or without the KV
+cache.
 
 The layout is little-endian with no padding. A 32-byte header (`GBIC`, version,
 `n_layer`, `n_embd`, `seq_len`, `n_prompt_tokens`, ablation type, ablated layer)
@@ -130,9 +140,9 @@ otherwise indistinguishable from a clean one, and its residual arithmetic is
 - [x] Token-for-token validation against HuggingFace GPT-2
 - [x] Activation capture across every block, exported for NumPy
 - [x] Layer-granularity ablation of attention and MLP sublayers
+- [x] KV cache
 
 ### Engine improvements
-- [ ] KV cache, since per-token cost is currently O(seq²) from recomputing attention over the whole prefix
 - [ ] Sampling strategies: temperature, top-k, top-p
 - [ ] Multithreaded / SIMD matmuls (single-threaded scalar loops today)
 
