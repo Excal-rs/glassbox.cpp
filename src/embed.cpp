@@ -5,7 +5,7 @@
 
 // Takes in a vector of tokens and adds their positional and token vectors together.
 // Returns a Tensor containing the embedded vectors.
-Tensor embed(const std::vector<int>& tokens, const Model& model){
+Tensor embed(const std::vector<int>& tokens, const Model& model, size_t pos_offset){
     const size_t n_embd { model.config.n_embd };
     Tensor out { {tokens.size(), n_embd} };
 
@@ -14,7 +14,7 @@ Tensor embed(const std::vector<int>& tokens, const Model& model){
 
     for (size_t i {0}; i < tokens.size(); ++i){
         for (size_t j {0}; j < n_embd; ++j){
-            out(i, j) = wte(tokens[i], j) + wpe(i, j);
+            out(i, j) = wte(tokens[i], j) + wpe(pos_offset + i, j);
         }
     }
     return out;

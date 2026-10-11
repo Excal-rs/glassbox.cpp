@@ -7,4 +7,4 @@
 #include <vector>
 
 // --------- Public API ---------
-Tensor embed(const std::vector<int>& tokens, const Model& model);
+Tensor embed(const std::vector<int>& tokens, const Model& model, size_t pos_offset = 0);

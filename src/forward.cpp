@@ -17,7 +17,8 @@ Tensor forward(const std::vector<int>& ids, const Model& model, const InterpCont
 {
     const Config&  config  = model.config;
     const Network& network = model.network;
-    const size_t   seq     { ids.size() };
+    const size_t   seq        { ids.size() };
+    const size_t   pos_offset { kv ? kv->length : 0 };
 
     validate_ablation(interpctx.ablation, config, seq);
 
@@ -25,7 +26,7 @@ Tensor forward(const std::vector<int>& ids, const Model& model, const InterpCont
     Tensor x {};
     {
         ScopeTimer timer { profile, Component::EMBED, config.n_layer, copy_cost(seq * config.n_embd) };
-        x = embed(ids, model);
+        x = embed(ids, model, pos_offset);
     }
 
     // Checkpoint: the residual stream entering the first block (wte + wpe).
@@ -37,7 +38,7 @@ Tensor forward(const std::vector<int>& ids, const Model& model, const InterpCont
     for (size_t layer_idx {0}; layer_idx < network.blocks.size(); ++layer_idx){
         const Block& block = network.blocks[layer_idx];
 
-        x = attention(x, block.ln_1, block.attn, config, interpctx, kv, layer_idx, profile);
+        x = attention(x, block.ln_1, block.attn, config, interpctx, kv, pos_offset, layer_idx, profile);
         if (interpctx.cache) {
             interpctx.cache->layers[layer_idx].stream_post_attention = x.data;
         }
